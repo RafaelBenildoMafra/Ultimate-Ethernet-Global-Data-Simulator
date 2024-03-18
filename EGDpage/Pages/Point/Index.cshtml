@@ -1,0 +1,60 @@
+﻿@page
+@model Point.IndexModel
+
+@{
+    ViewData["Title"] = "Index";
+}
+
+<h1>Configure Points</h1>
+
+<p>
+    <a asp-page="Create">Creat Point</a>
+</p>
+<table class="table">
+    <thead>
+        <tr>
+            <th>
+                Name
+            </th>
+            <th>
+                Node
+            </th>
+            <th>
+                Communication
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.Point[0].Address)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.Point[0].Value)
+            </th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+@foreach (var item in Model.Point) {
+        <tr>
+            <td>
+                @Html.DisplayFor(modelItem => item.Name)
+            </td>
+            <td>
+                @Html.DisplayFor(modelItem => item.Node.NodeName)
+            </td>
+            <td>
+                @Html.DisplayFor(modelItem => item.Node.CommunicationType)
+            </td>
+            <td>
+                @Html.DisplayFor(modelItem => item.Address)
+            </td>
+            <td>
+                @Html.DisplayFor(modelItem => item.Value)
+            </td>
+            <td>
+                <a asp-page="./Edit" asp-route-id="@item.PointID">Edit</a> |
+                <a asp-page="./Details" asp-route-id="@item.PointID">Details</a> |
+                <a asp-page="./Delete" asp-route-id="@item.PointID">Delete</a>
+            </td>
+        </tr>
+}
+    </tbody>
+</table>

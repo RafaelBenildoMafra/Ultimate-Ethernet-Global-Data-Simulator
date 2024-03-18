@@ -1,0 +1,48 @@
+﻿@page
+@model EthernetGlobalData.Models.IndexModel
+
+@{
+    ViewData["Title"] = "Index";
+}
+
+<h1>Configure Communication</h1>
+
+<p>
+    <a asp-page="Create">Create Communication Channel</a>
+</p>
+<table class="table">
+    <thead>
+        <tr>
+            <th>
+                Name
+            </th>
+            <th>
+                IP Address
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.Channel[0].Port)
+            </th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+@foreach (var item in Model.Channel) {
+        <tr>
+            <td>
+                @Html.DisplayFor(modelItem => item.ChannelName)
+            </td>
+            <td>
+                @Html.DisplayFor(modelItem => item.IP)
+            </td>
+            <td>
+                @Html.DisplayFor(modelItem => item.Port)
+            </td>
+            <td>
+                <a asp-page="./Edit" asp-route-id="@item.ChannelID">Edit</a> |
+                <a asp-page="./Details" asp-route-id="@item.ChannelID">Details</a> |
+                <a asp-page="./Delete" asp-route-id="@item.ChannelID">Delete</a>
+            </td>
+        </tr>
+}
+    </tbody>
+</table>

@@ -1,0 +1,47 @@
+﻿@page
+@model Point.CreateModel
+
+@{
+    ViewData["Title"] = "Create";
+}
+
+<h1>Create</h1>
+
+<h4>Point</h4>
+<hr />
+<div class="row">
+    <div class="col-md-4">
+        <form method="post">
+            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+            <div class="form-group">
+                <label asp-for="Point.Name" class="control-label"></label>
+                <input asp-for="Point.Name" class="form-control" />
+                <span asp-validation-for="Point.Name" class="text-danger"></span>
+            </div>
+            <div class="form-group">
+                <label asp-for="Point.NodeID" class="control-label"></label>
+                <select asp-for="Point.NodeID" class ="form-control" asp-items="ViewBag.NodeID"></select>
+            </div>
+            <div class="form-group">
+                <label asp-for="Point.Address" class="control-label"></label>
+                <input asp-for="Point.Address" class="form-control" />
+                <span asp-validation-for="Point.Address" class="text-danger"></span>
+            </div>
+            <!-- Add an empty div with margin below the last input field -->
+            <div class="form-group mt-2">
+                <!-- 'mt-3' adds margin-top of size 3 (adjust as needed) -->
+            </div>
+            <div class="form-group">
+                <input type="submit" value="Create" class="btn btn-primary" />
+            </div>
+        </form>
+    </div>
+</div>
+
+<div>
+    <a asp-page="Index">Back to List</a>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}

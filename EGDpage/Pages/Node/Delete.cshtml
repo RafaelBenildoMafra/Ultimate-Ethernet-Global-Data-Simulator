@@ -1,0 +1,55 @@
+﻿@page
+@model Node.DeleteModel
+
+@{
+    ViewData["Title"] = "Delete";
+}
+
+<h1>Delete</h1>
+
+<h3>Are you sure you want to delete this?</h3>
+<div>
+    <h4>Node</h4>
+    <hr />
+    <dl class="row">
+        <dt class="col-sm-2">
+            @Html.DisplayNameFor(model => model.Node.NodeName)
+        </dt>
+        <dt class="col-sm-2">
+            @Html.DisplayNameFor(model => model.Node.CommunicationType)
+        </dt>
+        <dd class="col-sm-10">
+            @Html.DisplayFor(model => model.Node.CommunicationType)
+        </dd>
+        <dt class="col-sm-2">
+            @Html.DisplayNameFor(model => model.Node.Channel)
+        </dt>
+        <dd class="col-sm-10">
+            @Html.DisplayFor(model => model.Node.Channel.IP)
+        </dd>
+        <dt class="col-sm-2">
+            @Html.DisplayNameFor(model => model.Node.Exchange)
+        </dt>
+        <dd class="col-sm-10">
+            @Html.DisplayFor(model => model.Node.Exchange)
+        </dd>
+        <dt class="col-sm-2">
+            @Html.DisplayNameFor(model => model.Node.MajorSignature)
+        </dt>
+        <dd class="col-sm-10">
+            @Html.DisplayFor(model => model.Node.MajorSignature)
+        </dd>
+        <dt class="col-sm-2">
+            @Html.DisplayNameFor(model => model.Node.MinorSignature)
+        </dt>
+        <dd class="col-sm-10">
+            @Html.DisplayFor(model => model.Node.MinorSignature)
+        </dd>
+    </dl>
+    
+    <form method="post">
+        <input type="hidden" asp-for="Node.NodeID" />
+        <input type="submit" value="Delete" class="btn btn-danger" /> |
+        <a asp-page="./Index">Back to List</a>
+    </form>
+</div>

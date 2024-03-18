@@ -1,0 +1,64 @@
+﻿@page
+@model Node.CreateModel
+
+@{
+    ViewData["Title"] = "Create";
+}
+
+<h1>Create</h1>
+
+<h4>Node</h4>
+<hr />
+<div class="row">
+    <div class="col-md-4">
+        <form method="post">
+            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+            <div class="form-group">
+                <label asp-for="Node.NodeName" class="control-label"></label>
+                <input asp-for="Node.NodeName" class="form-control" />
+                <span asp-validation-for="Node.NodeName" class="text-danger"></span>
+            </div>
+            <div class="form-group">
+                <label asp-for="Node.ChannelID" class="control-label"></label>
+                <select asp-for="Node.ChannelID" class ="form-control" asp-items="ViewBag.ChannelID"></select>
+            </div>
+            <div class="form-group">
+                <label asp-for="Node.CommunicationType" class="control-label"></label>
+                <select asp-for="Node.CommunicationType" class="form-control">
+                    <option value="Producer">Producer</option>
+                    <option value="Consumer">Consumer</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label asp-for="Node.Exchange" class="control-label"></label>
+                <input asp-for="Node.Exchange" class="form-control" />
+                <span asp-validation-for="Node.Exchange" class="text-danger"></span>
+            </div>
+            <div class="form-group">
+                <label asp-for="Node.MajorSignature" class="control-label"></label>
+                <input asp-for="Node.MajorSignature" class="form-control" />
+                <span asp-validation-for="Node.MajorSignature" class="text-danger"></span>
+            </div>
+            <div class="form-group">
+                <label asp-for="Node.MinorSignature" class="control-label"></label>
+                <input asp-for="Node.MinorSignature" class="form-control" />
+                <span asp-validation-for="Node.MinorSignature" class="text-danger"></span>
+            </div>
+            <!-- Add an empty div with margin below the last input field -->
+            <div class="form-group mt-2">
+                <!-- 'mt-3' adds margin-top of size 3 (adjust as needed) -->
+            </div>
+            <div class="form-group">
+                <input type="submit" value="Create" class="btn btn-primary" />
+            </div>
+        </form>
+    </div>
+</div>
+
+<div>
+    <a asp-page="Index">Back to List</a>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}

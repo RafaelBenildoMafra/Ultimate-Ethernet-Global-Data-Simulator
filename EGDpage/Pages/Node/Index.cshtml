@@ -1,0 +1,66 @@
+﻿@page
+@model Node.IndexModel
+
+@{
+    ViewData["Title"] = "Index";
+}
+
+<h1>Configure Nodes</h1>
+
+<p>
+    <a asp-page="Create">Create Node</a>
+</p>
+<table class="table">
+    <thead>
+        <tr>
+            <th>
+                Name
+            </th>
+            <th>
+                Communication
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.Node[0].Channel)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.Node[0].Exchange)
+            </th>
+            <th>
+                Major Siganture
+            </th>
+            <th>
+                Minor Signature
+            </th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+@foreach (var item in Model.Node) {
+        <tr>
+            <td>
+                @Html.DisplayFor(modelItem => item.NodeName)
+            </td>
+            <td>
+                @Html.DisplayFor(modelItem => item.CommunicationType)
+            </td>
+            <td>
+                @Html.DisplayFor(modelItem => item.Channel.ChannelName)
+            </td>
+            <td>
+                @Html.DisplayFor(modelItem => item.Exchange)
+            </td>
+            <td>
+                @Html.DisplayFor(modelItem => item.MajorSignature)
+            </td>
+            <td>
+                @Html.DisplayFor(modelItem => item.MinorSignature)
+            </td>
+            <td>
+                <a asp-page="./Edit" asp-route-id="@item.NodeID">Edit</a> |
+                <a asp-page="./Details" asp-route-id="@item.NodeID">Details</a> |
+                <a asp-page="./Delete" asp-route-id="@item.NodeID">Delete</a>
+            </td>
+        </tr>
+}
+    </tbody>
+</table>
