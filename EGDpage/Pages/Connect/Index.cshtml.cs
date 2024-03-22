@@ -9,7 +9,7 @@ using EthernetGlobalData.Data;
 using EthernetGlobalData.Models;
 using EthernetGlobalData.Protocol;
 
-namespace EthernetGlobalData.Pages.Point
+namespace EthernetGlobalData.Pages.Connect
 {
     public class IndexModel : PageModel
     {
@@ -20,13 +20,21 @@ namespace EthernetGlobalData.Pages.Point
             _context = context;
         }
 
-        public IList<EthernetGlobalData.Models.Point> Point { get; set; } = default!;
+        public IList<EthernetGlobalData.Models.Node> Node { get; set; } = default!;
 
         public async Task OnGetAsync()
         {
-            Point = await _context.Point
-                .Include(p => p.Node).ToListAsync();
-            
+            Node = await _context.Node
+                .Include(n => n.Channel).ToListAsync();            
+        }
+
+        public IActionResult OnPost()
+        {
+            _ = OnGetAsync();
+
+            Producer.Start(Node);
+
+            return RedirectToPage("/Connect/Index"); // Redirect to a different page after the method call
         }
     }
 }
