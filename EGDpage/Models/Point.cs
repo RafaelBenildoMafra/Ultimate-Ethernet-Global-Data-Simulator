@@ -7,6 +7,7 @@ using System.ComponentModel.DataAnnotations;
 using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Security.Policy;
+using EthernetGlobalData.Interfaces;
 
 namespace EthernetGlobalData.Models
 {
@@ -25,6 +26,6 @@ namespace EthernetGlobalData.Models
 
         [RegularExpression(@"^\d+\.\d+$", ErrorMessage = "Address is defined by (byte).(bit) Must be in the format (uint).(uint).")]
         public string? Address { get; set; }
-        public long? Value { get; set; }        
+        public long? Value { get; set; }
     }
 }

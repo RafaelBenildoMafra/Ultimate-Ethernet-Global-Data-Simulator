@@ -1,0 +1,29 @@
+﻿@page
+@model Connect.IndexModel
+
+@{
+    ViewData["Title"] = "Connect";
+}
+
+<h1>Connect Page</h1>
+
+<div style="margin-top: 20px;">
+    <form method="post">
+        <button type="submit" class="btn btn-success">Connect</button>
+    </form>
+</div>
+
+<!-- Include jQuery for simplicity -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+<script>
+    $(document).ready(function () {
+        $('form').submit(function (event) {
+            event.preventDefault(); // Prevent default form submission
+            $.post($(this).attr('action'), $(this).serialize(), function (response) {
+                // Show a pop-up indicating that the button is working
+                alert("Connection Established!");
+            });
+        });
+    });
+</script>
