@@ -23,6 +23,9 @@
                 Communication
             </th>
             <th>
+                Data Type
+            </th>
+            <th>
                 @Html.DisplayNameFor(model => model.Point[0].Address)
             </th>
             <th>
@@ -43,6 +46,9 @@
             <td>
                 @Html.DisplayFor(modelItem => item.Node.CommunicationType)
             </td>
+                <td>
+                    @Html.DisplayFor(modelItem => item.DataType)
+                </td>
             <td>
                 @Html.DisplayFor(modelItem => item.Address)
             </td>

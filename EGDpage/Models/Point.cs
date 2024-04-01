@@ -23,9 +23,16 @@ namespace EthernetGlobalData.Models
         [Required]
         public string? Name { get; set; }
         public Node? Node { get; set; }
-
-        [RegularExpression(@"^\d+\.\d+$", ErrorMessage = "Address is defined by (byte).(bit) Must be in the format (uint).(uint).")]
+        public DataType DataType { get; set; }      
         public string? Address { get; set; }
         public long? Value { get; set; }
+    }
+
+    public enum DataType
+    {
+        Boolean,
+        Word,
+        Real,
+        Long
     }
 }

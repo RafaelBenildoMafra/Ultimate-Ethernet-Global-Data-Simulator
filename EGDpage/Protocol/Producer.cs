@@ -28,13 +28,14 @@ namespace EthernetGlobalData.Protocol
             {
                 if (node.CommunicationType != "Producer")
                     continue;                                                
-
+                
                 Message.Header header = new Message.Header
                 {
                     ProducerID = node.Channel.IP,
                     MajorSignature = node.MajorSignature,
                     MinorSignature = node.MinorSignature,
                     ExchangeID = node.Exchange,
+                    Points = node.Points,
                 };
 
                 UDP transportLayer = new UDP(node.Channel.IP, node.Channel.Port);
@@ -47,7 +48,7 @@ namespace EthernetGlobalData.Protocol
 
         private static async Task Communicate(Message message)
         {            
-            message.WriteMessage();
+            message.Write();
 
             message.UpdateMessageNumber();            
 
