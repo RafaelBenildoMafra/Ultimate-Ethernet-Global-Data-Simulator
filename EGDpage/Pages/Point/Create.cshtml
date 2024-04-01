@@ -15,7 +15,7 @@
             <div asp-validation-summary="ModelOnly" class="text-danger"></div>
             <div class="form-group">
                 <label asp-for="Point.Name" class="control-label"></label>
-                <input asp-for="Point.Name" class="form-control" />
+                <input asp-for="Point.Name" class="form-control" value="PARAMETER XX SET POINT"/>
                 <span asp-validation-for="Point.Name" class="text-danger"></span>
             </div>
             <div class="form-group">
@@ -23,8 +23,18 @@
                 <select asp-for="Point.NodeID" class ="form-control" asp-items="ViewBag.NodeID"></select>
             </div>
             <div class="form-group">
+                <label asp-for="Point.DataType" class="control-label"></label>
+                <select asp-for="Point.DataType" class="form-control" id="Point_DataType">
+                    @foreach (var dataType in Enum.GetValues(typeof(Models.DataType)))
+                    {
+                        <option value="@dataType">@dataType</option>
+                    }
+                </select>
+                <span asp-validation-for="Point.DataType" class="text-danger"></span>
+            </div>
+            <div class="form-group">
                 <label asp-for="Point.Address" class="control-label"></label>
-                <input asp-for="Point.Address" class="form-control" />
+                <input asp-for="Point.Address" class="form-control" id="addressInput" />
                 <span asp-validation-for="Point.Address" class="text-danger"></span>
             </div>
             <!-- Add an empty div with margin below the last input field -->
@@ -43,5 +53,27 @@
 </div>
 
 @section Scripts {
-    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+    <script>
+        $(document).ready(function () {
+            $('#Point_DataType').change(function () {
+                var dataType = $(this).val();
+                var addressInput = $('#addressInput');
+
+                addressInput.attr('min', '1');
+                addressInput.attr('max', '1400');
+                addressInput.removeAttr('pattern');
+                addressInput.removeAttr('title');
+
+                // Apply constraints based on data type
+                if (dataType === 'Boolean') {
+                    // Boolean data type: address must be uint.uint
+                    addressInput.attr('pattern', '^(\\d+)\\.(\\d+)$');
+                    addressInput.attr('title', 'Address must be in the format uint.uint');
+                } else {
+                    // Other data types: address must be between 1 and 1400
+                    addressInput.attr('type', 'number');
+                }
+            });
+        });
+    </script>
 }

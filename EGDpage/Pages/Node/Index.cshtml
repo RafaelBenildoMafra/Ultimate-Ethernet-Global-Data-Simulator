@@ -31,6 +31,9 @@
             <th>
                 Minor Signature
             </th>
+            <th>
+                Points
+            </th>
             <th></th>
         </tr>
     </thead>
@@ -54,6 +57,14 @@
             </td>
             <td>
                 @Html.DisplayFor(modelItem => item.MinorSignature)
+            </td>
+            <td>
+                <select>
+                    @foreach (var point in item.Points)
+                    {
+                        <option value="@point.PointID">@point.Name</option>
+                    }
+                </select>
             </td>
             <td>
                 <a asp-page="./Edit" asp-route-id="@item.NodeID">Edit</a> |

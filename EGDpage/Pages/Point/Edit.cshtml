@@ -25,6 +25,17 @@
                 <span asp-validation-for="Point.NodeID" class="text-danger"></span>
             </div>
             <div class="form-group">
+                <label asp-for="Point.DataType" class="control-label"></label>
+                <select asp-for="Point.DataType" class="form-control">
+                    <option value="">Select Data Type</option>
+                    @foreach (var dataType in Enum.GetValues(typeof(Models.DataType)))
+                    {
+                        <option value="@dataType">@dataType</option>
+                    }
+                </select>
+                <span asp-validation-for="Point.DataType" class="text-danger"></span>
+            </div>
+            <div class="form-group">
                 <label asp-for="Point.Address" class="control-label"></label>
                 <input asp-for="Point.Address" class="form-control" />
                 <span asp-validation-for="Point.Address" class="text-danger"></span>

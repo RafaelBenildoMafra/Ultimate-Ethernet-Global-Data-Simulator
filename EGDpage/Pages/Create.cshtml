@@ -15,7 +15,7 @@
             <div asp-validation-summary="ModelOnly" class="text-danger"></div>
             <div class="form-group">
                 <label asp-for="Channel.ChannelName" class="control-label"></label>
-                <input asp-for="Channel.ChannelName" class="form-control" />
+                <input asp-for="Channel.ChannelName" class="form-control" value="ChannelA"/>
                 <span asp-validation-for="Channel.IP" class="text-danger"></span>
             </div>
             <div class="form-group">
@@ -23,9 +23,9 @@
                 <input asp-for="Channel.IP" class="form-control" />
                 <span asp-validation-for="Channel.IP" class="text-danger"></span>
             </div>
-            <div class="form-group">
+            <div class="form-group">                
                 <label asp-for="Channel.Port" class="control-label"></label>
-                <input asp-for="Channel.Port" class="form-control" />
+                <input asp-for="Channel.Port" class="form-control" value="18246" />
                 <span asp-validation-for="Channel.Port" class="text-danger"></span>
             </div>
             <!-- Add an empty div with margin below the last input field -->
