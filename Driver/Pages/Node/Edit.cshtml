@@ -25,8 +25,10 @@
             </div>
             <div class="form-group">
                 <label asp-for="Node.CommunicationType" class="control-label"></label>
-                <input asp-for="Node.CommunicationType" class="form-control" />
-                <span asp-validation-for="Node.CommunicationType" class="text-danger"></span>
+                <select asp-for="Node.CommunicationType" class="form-control">
+                    <option value="Producer">Producer</option>
+                    <option value="Consumer">Consumer</option>
+                </select>
             </div>
             <div class="form-group">
                 <label asp-for="Node.Exchange" class="control-label"></label>
@@ -43,6 +45,7 @@
                 <input asp-for="Node.MinorSignature" class="form-control" />
                 <span asp-validation-for="Node.MinorSignature" class="text-danger"></span>
             </div>
+            <div class="form-group mt-2">
             <div class="form-group">
                 <input type="submit" value="Save" class="btn btn-primary" />
             </div>

@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using EthernetGlobalData.Data;
 using EthernetGlobalData.Models;
 using EthernetGlobalData.Protocol;
+using Microsoft.EntityFrameworkCore.Metadata.Internal;
 
 namespace EthernetGlobalData.Pages.Connect
 {
@@ -30,13 +31,25 @@ namespace EthernetGlobalData.Pages.Connect
                 .ToListAsync();            
         }
 
-        public IActionResult OnPost()
+        public async Task<IActionResult> OnPostAsync()
         {
-            _ = OnGetAsync();
+            if (!ModelState.IsValid)
+            {
+                return Page();
+            }
 
-            Producer.Start(Node);
+            Node = await _context.Node
+                .Include(n => n.Channel)
+                .Include(n => n.Points)
+                .ToListAsync();
 
-            return RedirectToPage("/Connect/Index"); // Redirect to a different page after the method call
+            Producer producer = new Producer(_context);
+
+            Consumer consumer = new Consumer(_context);
+                
+            consumer.Start(Node);
+
+            return RedirectToPage("./Index");
         }
     }
 }

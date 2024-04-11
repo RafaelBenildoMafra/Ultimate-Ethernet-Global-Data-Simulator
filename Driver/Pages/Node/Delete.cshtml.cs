@@ -29,7 +29,10 @@ namespace EthernetGlobalData.Pages.Node
                 return NotFound();
             }
 
-            var node = await _context.Node.FirstOrDefaultAsync(m => m.NodeID == id);
+            var node = await _context.Node
+                .Include(p => p.Channel)
+                .FirstOrDefaultAsync(m => m.NodeID == id);
+
 
             if (node == null)
             {

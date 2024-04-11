@@ -25,7 +25,8 @@ namespace EthernetGlobalData.Pages.Point
         public async Task OnGetAsync()
         {
             Point = await _context.Point
-                .Include(p => p.Node).ToListAsync();
+                .Include(p => p.Node)
+                .ToListAsync();
             
         }
     }

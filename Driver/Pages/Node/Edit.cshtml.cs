@@ -36,7 +36,7 @@ namespace EthernetGlobalData.Pages.Node
                 return NotFound();
             }
             Node = node;
-            ViewData["ChannelID"] = new SelectList(_context.Channel, "ChannelID", "IP");
+            ViewData["ChannelID"] = new SelectList(_context.Channel, "ChannelID", "ChannelName");
             return Page();
         }
 

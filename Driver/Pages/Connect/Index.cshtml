@@ -8,8 +8,8 @@
 <h1>Connect Page</h1>
 
 <div style="margin-top: 20px;">
-    <form method="post">
-        <button type="submit" class="btn btn-success">Connect</button>
+    <form id="form" method="post">
+        <input id="comm-button" type="submit" value="Start Communication" class="btn btn-success" />
     </form>
 </div>
 
@@ -18,12 +18,13 @@
 
 <script>
     $(document).ready(function () {
-        $('form').submit(function (event) {
-            event.preventDefault(); // Prevent default form submission
-            $.post($(this).attr('action'), $(this).serialize(), function (response) {
-                // Show a pop-up indicating that the button is working
-                alert("Connection Established!");
-            });
+
+        $('#form').submit(function () {
+            
+            $('#comm-button').val('Communicating');
+            $('#comm-button').prop('disabled', true);
+            
+            return true;
         });
     });
 </script>

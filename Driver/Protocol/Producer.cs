@@ -1,7 +1,10 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 using EthernetGlobalData.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using EthernetGlobalData.Data;
@@ -10,9 +13,10 @@ using Humanizer;
 
 namespace EthernetGlobalData.Protocol
 {
-    public class Producer
+    public class Producer : IProtocol
     {
-
+        private List<Task> tasks = new List<Task>();
+        private CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
         private readonly ProtocolContext _context;
 
         public Producer(ProtocolContext context)
@@ -20,18 +24,16 @@ namespace EthernetGlobalData.Protocol
             _context = context;
         }
 
-        public static void Start(IList<EthernetGlobalData.Models.Node> nodes)
+        public void Start(IList<EthernetGlobalData.Models.Node> nodes)
         {
-            List<Task> tasks = new List<Task>();
-
             foreach (Models.Node node in nodes)
             {
                 if (node.CommunicationType != "Producer")
                     continue;                                                
                 
-                Message.Header header = new Message.Header
+                Protocol.Header header = new Protocol.Header
                 {
-                    ProducerID = node.Channel.IP,
+                    ID = node.Channel.IP,
                     MajorSignature = node.MajorSignature,
                     MinorSignature = node.MinorSignature,
                     ExchangeID = node.Exchange,
@@ -40,19 +42,32 @@ namespace EthernetGlobalData.Protocol
 
                 UDP transportLayer = new UDP(node.Channel.IP, node.Channel.Port);
 
-                Message message = new Message(transportLayer, header);
+                Protocol protocol = new Protocol(transportLayer, header);
 
-                tasks.Add(Communicate(message));
+                tasks.Add(Communicate(protocol));
             }
         }
 
-        private static async Task Communicate(Message message)
+        public void Stop()
+        {
+            cancellationTokenSource.Cancel();
+
+            try
+            {
+                Task.WaitAll(tasks.ToArray());
+            }
+            catch (AggregateException)
+            {
+            }
+
+            tasks.Clear();
+        }
+
+        public async Task Communicate(Protocol protocol)
         {            
-            message.Write();
+            protocol.Write();
 
-            message.UpdateMessageNumber();            
-
-            Console.WriteLine("EGD Message sent to the broadcast address");
+            protocol.UpdateMessageNumber();   
 
             await Task.Delay(TimeSpan.FromSeconds(1));
         }

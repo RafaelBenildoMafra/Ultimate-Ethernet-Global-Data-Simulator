@@ -13,16 +13,19 @@
     <hr />
     <dl class="row">
         <dt class="col-sm-2">
-            @Html.DisplayNameFor(model => model.Channel.ChannelName)
+            Name
         </dt>
+        <dd class="col-sm-10">
+            @Html.DisplayFor(model => model.Channel.ChannelName)
+        </dd>
         <dt class="col-sm-2">
-            @Html.DisplayNameFor(model => model.Channel.IP)
+            IP
         </dt>
         <dd class="col-sm-10">
             @Html.DisplayFor(model => model.Channel.IP)
         </dd>
         <dt class="col-sm-2">
-            @Html.DisplayNameFor(model => model.Channel.Port)
+            Port
         </dt>
         <dd class="col-sm-10">
             @Html.DisplayFor(model => model.Channel.Port)

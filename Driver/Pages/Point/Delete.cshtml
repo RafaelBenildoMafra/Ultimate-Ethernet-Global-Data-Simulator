@@ -12,32 +12,53 @@
     <h4>Point</h4>
     <hr />
     <dl class="row">
+        <dt class="col-sm-2">
+            @Html.DisplayNameFor(model => model.Point.Name)
+        </dt>
         <dd class="col-sm-10">
             @Html.DisplayFor(model => model.Point.Name)
         </dd>
         <dt class="col-sm-2">
-            @Html.DisplayNameFor(model => model.Point.Node)
+            Node Name
+        </dt>
+        <dd class="col-sm-10">
+            @Html.DisplayFor(model => model.Point.Node.NodeName)
+        </dd>
+        <dt class="col-sm-2">
+            @Html.DisplayNameFor(model => model.Point.Node.CommunicationType)
         </dt>
         <dd class="col-sm-10">
             @Html.DisplayFor(model => model.Point.Node.CommunicationType)
+
+        <dt class="col-sm-2">
+            Channel IP
+        </dt>
+        <dd class="col-sm-10">
+                @Html.DisplayFor(model => model.Point.Node.Channel.IP)
+
+        <dt class="col-sm-2">
+            Channel Port
+        </dt>
+        <dd class="col-sm-10">
+                    @Html.DisplayFor(model => model.Point.Node.Channel.Port)
         </dd>
         <dt class="col-sm-2">
             Data Type
         </dt>
         <dd class="col-sm-10">
-            @Html.DisplayFor(model => model.Point.DataType)
+                    @Html.DisplayFor(model => model.Point.DataType)
         </dd>
         <dt class="col-sm-2">
-            @Html.DisplayNameFor(model => model.Point.Address)
+                    @Html.DisplayNameFor(model => model.Point.Address)
         </dt>
         <dd class="col-sm-10">
-            @Html.DisplayFor(model => model.Point.Address)
+                    @Html.DisplayFor(model => model.Point.Address)
         </dd>
         <dt class="col-sm-2">
-            @Html.DisplayNameFor(model => model.Point.Value)
+                    @Html.DisplayNameFor(model => model.Point.Value)
         </dt>
         <dd class="col-sm-10">
-            @Html.DisplayFor(model => model.Point.Value)
+                    @Html.DisplayFor(model => model.Point.Value)
         </dd>
     </dl>
     

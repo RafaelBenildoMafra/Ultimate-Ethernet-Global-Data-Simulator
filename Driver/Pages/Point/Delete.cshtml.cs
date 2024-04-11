@@ -29,7 +29,9 @@ namespace EthernetGlobalData.Pages.Point
                 return NotFound();
             }
 
-            var point = await _context.Point.FirstOrDefaultAsync(m => m.PointID == id);
+            var point = await _context.Point
+                .Include(p => p.Node.Channel)
+                .FirstOrDefaultAsync(m => m.PointID == id);
 
             if (point == null)
             {

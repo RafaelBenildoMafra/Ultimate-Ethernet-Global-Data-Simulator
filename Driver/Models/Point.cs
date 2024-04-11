@@ -17,10 +17,8 @@ namespace EthernetGlobalData.Models
         [Key]
         public int PointID { get; set; }        
 
-        [ForeignKey("NodeName")]
+        [ForeignKey("Node")]
         public int NodeID { get; set; }
-
-        [Required]
         public string? Name { get; set; }
         public Node? Node { get; set; }
         public DataType DataType { get; set; }      
