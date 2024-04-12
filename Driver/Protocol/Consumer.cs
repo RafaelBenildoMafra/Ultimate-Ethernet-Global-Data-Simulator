@@ -60,57 +60,125 @@ namespace EthernetGlobalData.Protocol
         }
 
         public async Task Communicate(Protocol protocol)
-        {
-            protocol.Read();
+        {   
+            while(true)
+            {
+                protocol.Read();
 
-            if (protocol.Payload == null)
-            {   
-                protocol.TransportLayer.Close();
+                if (protocol.Payload == null)
+                {
+                    protocol.TransportLayer.Close();
 
-                cancellationTokenSource.Cancel();
+                    cancellationTokenSource.Cancel();
 
-                return;
+                    return;
+                }
+
+                TreatPayload(protocol);
+
+                protocol.Payload.Clear();
             }
-
-            TreatPayload(protocol);
         }
 
-        public async void TreatPayload(Protocol protocol)
+        public void TreatPayload(Protocol protocol)
         {
             foreach (Models.Point point in protocol.MessageHeader.Points)
             {
-                switch(point.DataType)
+                string[] address = new string[2];
+                ushort bytePos;
+                ushort bitPos;
+
+                AjustPayloadSize(protocol);
+
+                try
                 {
-                    case Models.DataType.Boolean:
+                    switch (point.DataType)
+                    {
+                        case Models.DataType.Boolean:
 
-                        string[] address = point.Address.Split(".");
+                            address = point.Address.Split(".");
 
-                        ushort bytePos = Convert.ToUInt16(address[0]);
-                        ushort bitPos = Convert.ToUInt16(address[1]);
+                            bytePos = Convert.ToUInt16(address[0]);
+                            bitPos = Convert.ToUInt16(address[1]);
 
-                        BitArray bitArray = new BitArray(protocol.Payload[bytePos]);
+                            BitArray bitArray = new BitArray(new byte[] { protocol.Payload[bytePos] });
 
-                        point.Value = bitArray[bitPos] == true ? 1 : 0;
+                            point.Value = bitArray[bitPos] == true ? 1 : 0;
 
-                        _context.Attach(point).State = EntityState.Modified;
+                            UpdatePoint(point);
 
-                        try
-                        {
-                            await _context.SaveChangesAsync();
-                        }
-                        catch (DbUpdateConcurrencyException)
-                        {
-                            if (!PointExists(point.PointID))
-                            {
-                                break;
-                            }
-                            else
-                            {
-                                throw;
-                            }
-                        }
+                            break;
 
-                        break;
+                        case Models.DataType.Word:
+
+                            address[0] = point.Address.Split(".")[0];
+
+                            bytePos = Convert.ToUInt16(address[0]);
+
+                            byte[] byteWord = { protocol.Payload[bytePos], protocol.Payload[bytePos + 1] };
+
+                            point.Value = BitConverter.ToUInt16(byteWord, 0);
+
+                            UpdatePoint(point);
+
+                            break;
+
+                        case Models.DataType.Real:
+
+                            address[0] = point.Address.Split(".")[0];
+
+                            bytePos = Convert.ToUInt16(address[0]);
+
+                            byte[] byteReal = {protocol.Payload[bytePos], protocol.Payload[bytePos + 1], protocol.Payload[bytePos + 2],
+                            protocol.Payload[bytePos + 3]};
+
+                            point.Value = BitConverter.ToUInt32(byteReal, 0);
+
+                            UpdatePoint(point);
+
+                            break;
+
+                        case Models.DataType.Long:
+
+                            address[0] = point.Address.Split(".")[0];
+
+                            bytePos = Convert.ToUInt16(address[0]);
+
+                            byte[] byteLong = {protocol.Payload[bytePos], protocol.Payload[bytePos + 1], protocol.Payload[bytePos + 2],
+                            protocol.Payload[bytePos + 3], protocol.Payload[bytePos + 4], protocol.Payload[bytePos + 5],
+                            protocol.Payload[bytePos + 6], protocol.Payload[bytePos + 7] };
+
+                            point.Value = BitConverter.ToInt64(byteLong, 0);
+
+                            UpdatePoint(point);
+
+                            break;
+                    }
+                }
+                catch(Exception ex)
+                {
+                    Console.WriteLine(ex.Message);
+                }
+            }
+        }
+
+        private async void UpdatePoint(Models.Point point)
+        {
+            _context.Attach(point).State = EntityState.Modified;
+
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                if (!PointExists(point.PointID))
+                {
+                    throw;
+                }
+                else
+                {
+                    throw;
                 }
             }
         }
@@ -118,6 +186,17 @@ namespace EthernetGlobalData.Protocol
         private bool PointExists(int id)
         {
             return _context.Point.Any(e => e.PointID == id);
+        }
+
+        private void AjustPayloadSize(Protocol protocol)
+        {   
+            if (protocol.Payload.Count < 7)
+            {
+                for (int i = 0; i < 7; i++)
+                {
+                    protocol.Payload.Add(0);
+                }
+            }
         }
     }
 }
