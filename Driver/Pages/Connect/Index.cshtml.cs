@@ -22,13 +22,16 @@ namespace EthernetGlobalData.Pages.Connect
         }
 
         public IList<EthernetGlobalData.Models.Node> Node { get; set; } = default!;
+        public IList<EthernetGlobalData.Models.Channel> Channel { get; set; } = default!;
 
         public async Task OnGetAsync()
         {
             Node = await _context.Node
                 .Include(n => n.Channel)
                 .Include(n => n.Points)
-                .ToListAsync();            
+                .ToListAsync();
+
+            Channel = await _context.Channel.ToListAsync();
         }
 
         public async Task<IActionResult> OnPostAsync()
@@ -43,11 +46,13 @@ namespace EthernetGlobalData.Pages.Connect
                 .Include(n => n.Points)
                 .ToListAsync();
 
+            Channel = await _context.Channel.ToListAsync();
+
             Producer producer = new Producer(_context);
 
             Consumer consumer = new Consumer(_context);
                 
-            consumer.Start(Node);
+            consumer.Start(Node, Channel);
 
             return RedirectToPage("./Index");
         }

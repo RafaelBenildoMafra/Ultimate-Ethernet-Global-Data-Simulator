@@ -24,7 +24,7 @@ namespace EthernetGlobalData.Protocol
             _context = context;
         }
 
-        public void Start(IList<EthernetGlobalData.Models.Node> nodes)
+        public void Start(IList<EthernetGlobalData.Models.Node> nodes, IList<Models.Channel> channels)
         {
             foreach (Models.Node node in nodes)
             {

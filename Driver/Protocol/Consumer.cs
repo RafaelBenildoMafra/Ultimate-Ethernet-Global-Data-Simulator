@@ -1,15 +1,21 @@
 ﻿using EthernetGlobalData.Data;
+using EthernetGlobalData.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using System.Collections;
 using System.ComponentModel.DataAnnotations;
+using System.Net.Sockets;
 using System.Threading;
+using static EthernetGlobalData.Protocol.Protocol;
+using System.Xml.Linq;
 
 namespace EthernetGlobalData.Protocol
 {
     public class Consumer : IProtocol
     {
         private List<Task> tasks = new List<Task>();
+        private List<Thread> threads = new List<Thread>();
         private CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
         private readonly ProtocolContext _context;
         private List<byte> Payload = new List<byte>();
@@ -22,25 +28,35 @@ namespace EthernetGlobalData.Protocol
             _context = context;
         }
 
-        public void Start(IList<EthernetGlobalData.Models.Node> nodes)
+        public void Start(IList<Models.Node> nodes, IList<Models.Channel> channels)
         {
-            foreach (Models.Node node in nodes)
-            {
-                if (node.CommunicationType != "Consumer")
-                    continue;
-
-                Protocol.Header header = new Protocol.Header
+            foreach(Channel channel in channels)
+            {                
+                Thread thread = new Thread(() =>
                 {
-                    ID = node.Channel.IP,
-                    MajorSignature = node.MajorSignature,
-                    MinorSignature = node.MinorSignature,
-                    ExchangeID = node.Exchange,
-                    Points = node.Points,
-                };
+                    UDP transportLayer = new UDP(channel.IP, channel.Port);
 
-                Protocol protocol = new Protocol(new UDP(node.Channel.IP, node.Channel.Port), header);
+                    foreach (Node node in nodes)
+                    {
+                        if (node.CommunicationType != "Consumer")
+                            continue;
 
-                tasks.Add(Communicate(protocol));
+                        Protocol.Header header = new Protocol.Header
+                        {
+                            ID = node.Channel.IP,
+                            MajorSignature = node.MajorSignature,
+                            MinorSignature = node.MinorSignature,
+                            ExchangeID = node.Exchange,
+                            Points = node.Points,
+                        };
+
+                        Protocol protocol = new Protocol(transportLayer, header);
+
+                        tasks.Add(Communicate(protocol));
+                    }
+                });
+                thread.Start();
+                threads.Add(thread);
             }
         }
 
@@ -60,8 +76,8 @@ namespace EthernetGlobalData.Protocol
         }
 
         public async Task Communicate(Protocol protocol)
-        {   
-            while(true)
+        {
+            try
             {
                 protocol.Read();
 
@@ -74,13 +90,17 @@ namespace EthernetGlobalData.Protocol
                     return;
                 }
 
-                TreatPayload(protocol);
+                await TreatPayload(protocol);
 
-                protocol.Payload.Clear();
+                protocol.Payload.Clear();                                    
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e);
             }
         }
 
-        public void TreatPayload(Protocol protocol)
+        public async Task TreatPayload(Protocol protocol)
         {
             foreach (Models.Point point in protocol.MessageHeader.Points)
             {
@@ -155,9 +175,9 @@ namespace EthernetGlobalData.Protocol
                             break;
                     }
                 }
-                catch(Exception ex)
+                catch(Exception e)
                 {
-                    Console.WriteLine(ex.Message);
+                    Console.WriteLine(e);
                 }
             }
         }
