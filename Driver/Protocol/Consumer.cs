@@ -32,8 +32,8 @@ namespace EthernetGlobalData.Protocol
         {
             foreach(Channel channel in channels)
             {                
-                Thread thread = new Thread(() =>
-                {
+                //Thread thread = new Thread(() =>
+                //{
                     UDP transportLayer = new UDP(channel.IP, channel.Port);
 
                     foreach (Node node in nodes)
@@ -54,9 +54,9 @@ namespace EthernetGlobalData.Protocol
 
                         tasks.Add(Communicate(protocol));
                     }
-                });
-                thread.Start();
-                threads.Add(thread);
+                //});
+                //thread.Start();
+                //threads.Add(thread);
             }
         }
 

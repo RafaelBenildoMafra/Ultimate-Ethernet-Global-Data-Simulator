@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using EthernetGlobalData.Data;
 using EthernetGlobalData.Models;
+using Microsoft.VisualStudio.Web.CodeGenerators.Mvc.View;
 
 namespace EthernetGlobalData.Pages.Point
 {
@@ -31,13 +32,15 @@ namespace EthernetGlobalData.Pages.Point
             }
 
             var point = await _context.Point.FirstOrDefaultAsync(m => m.PointID == id);
+
             if (point == null)
             {
                 return NotFound();
             }
+
             Point = point;
             ViewData["NodeID"] = new SelectList(_context.Node, "NodeID", "NodeName");
-            return Page();
+            return Page();            
         }
 
         public async Task<IActionResult> OnPostAsync()

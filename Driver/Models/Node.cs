@@ -18,7 +18,10 @@ namespace EthernetGlobalData.Models
 
         [ForeignKey("Channel")]
         public int ChannelID { get; set; }
+
+        [Required]
         public string? NodeName { get; set; }
+
         public string? CommunicationType { get; set; }
         public Channel? Channel { get; set; }
         public ushort Exchange { get; set; }

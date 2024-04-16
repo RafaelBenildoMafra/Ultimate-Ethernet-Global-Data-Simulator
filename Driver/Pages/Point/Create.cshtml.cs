@@ -21,7 +21,7 @@ namespace EthernetGlobalData.Pages.Point
 
         public IActionResult OnGet()
         {
-            ViewData["NodeID"]= new SelectList(_context.Node, "NodeID", "NodeName");
+            ViewData["NodeID"] = new SelectList(_context.Node, "NodeID", "NodeName");
             return Page();
         }
 
