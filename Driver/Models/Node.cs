@@ -1,12 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using Microsoft.EntityFrameworkCore;
-using EthernetGlobalData.Interfaces;
 
 namespace EthernetGlobalData.Models
 {
@@ -18,7 +12,10 @@ namespace EthernetGlobalData.Models
 
         [ForeignKey("Channel")]
         public int ChannelID { get; set; }
+
+        [Required]
         public string? NodeName { get; set; }
+
         public string? CommunicationType { get; set; }
         public Channel? Channel { get; set; }
         public ushort Exchange { get; set; }

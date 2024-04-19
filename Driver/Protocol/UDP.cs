@@ -1,12 +1,11 @@
 ﻿using System.Net;
-using System.Net.NetworkInformation;
 using System.Net.Sockets;
-using System.Text;
 
 namespace EthernetGlobalData.Protocol
 {
     public class UDP
     {
+        protected static List<UdpClient> Clients = new List<UdpClient>();
         protected UdpClient Client;
         protected IPEndPoint localEP;
         public static bool messageReceived = false;
@@ -15,6 +14,7 @@ namespace EthernetGlobalData.Protocol
         {
             localEP = new IPEndPoint(IPAddress.Parse(ipAddress), port);
             Client = new UdpClient(localEP);
+            Clients.Add(Client);
         }
 
         public void Send(byte[] data)
@@ -25,7 +25,7 @@ namespace EthernetGlobalData.Protocol
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error sending data: {ex.Message}");                
+                Console.WriteLine($"Error sending data: {ex.Message}");
             }
         }
 
@@ -45,8 +45,16 @@ namespace EthernetGlobalData.Protocol
             }
         }
 
+        public static void CloseAllConnections()
+        {
+            foreach (UdpClient client in Clients)
+            {
+                client.Close();
+            }
+        }
+
         public void Close()
-        { 
+        {
             this.Client.Close();
         }
     }

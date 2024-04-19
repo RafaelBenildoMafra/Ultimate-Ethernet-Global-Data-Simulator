@@ -1,27 +1,22 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
+﻿using EthernetGlobalData.Data;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.Mvc.Rendering;
-using EthernetGlobalData.Data;
-using EthernetGlobalData.Models;
 
 namespace EthernetGlobalData.Pages.Point
 {
     public class CreateModel : PageModel
     {
-        private readonly ProtocolContext _context;
+        private readonly ApplicationDbContext _context;
 
-        public CreateModel(ProtocolContext context)
+        public CreateModel(ApplicationDbContext context)
         {
             _context = context;
         }
 
         public IActionResult OnGet()
         {
-            ViewData["NodeID"]= new SelectList(_context.Node, "NodeID", "NodeName");
+            ViewData["NodeID"] = new SelectList(_context.Node, "NodeID", "NodeName");
             return Page();
         }
 

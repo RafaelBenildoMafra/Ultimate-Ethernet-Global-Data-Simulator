@@ -1,20 +1,15 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
+﻿using EthernetGlobalData.Data;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
-using EthernetGlobalData.Data;
-using EthernetGlobalData.Models;
 
 namespace EthernetGlobalData.Pages.Node
 {
     public class DetailsModel : PageModel
     {
-        private readonly ProtocolContext _context;
+        private readonly ApplicationDbContext _context;
 
-        public DetailsModel(ProtocolContext context)
+        public DetailsModel(ApplicationDbContext context)
         {
             _context = context;
         }
@@ -29,7 +24,7 @@ namespace EthernetGlobalData.Pages.Node
             }
 
             var node = await _context.Node
-                .Include(p=> p.Channel)
+                .Include(p => p.Channel)
                 .FirstOrDefaultAsync(m => m.NodeID == id);
 
             if (node == null)

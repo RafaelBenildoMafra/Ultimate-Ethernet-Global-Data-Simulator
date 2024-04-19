@@ -20,6 +20,11 @@
                 <span asp-validation-for="Point.Name" class="text-danger"></span>
             </div>
             <div class="form-group">
+                <label asp-for="Point.NodeID" class="control-label"></label>
+                <select asp-for="Point.NodeID" class="form-control" asp-items="ViewBag.NodeID"></select>
+                <span asp-validation-for="Point.NodeID" class="text-danger"></span>
+            </div>
+            <div class="form-group">
                 <label asp-for="Point.DataType" class="control-label"></label>
                 <select asp-for="Point.DataType" class="form-control">
                     <option value="">Select Data Type</option>
@@ -53,5 +58,35 @@
 </div>
 
 @section Scripts {
-    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+    <script>
+        $(document).ready(function () {
+
+            var addressInput = $('#addressInput');
+
+            addressInput.attr('pattern', '^(?:1400|[1-9][0-9]{0,2}|[0-9])\.[0-7]$');
+            addressInput.attr('title', 'Boolean Address: (byte(0-1400).(bit(0-7)))');
+
+            var initialPattern = addressInput.attr('pattern');
+            var initialTitle = addressInput.attr('title');
+
+            $('#pointDataType').change(function () {
+
+                var dataType = $(this).val();
+
+                if (dataType != 'Boolean') {
+                    addressInput.attr('type', 'number');
+                    addressInput.attr('min', '0');
+                    addressInput.attr('max', '1400');
+                    addressInput.attr('pattern', '');
+                    addressInput.attr('title', '');
+                    addressInput.val('0');
+                }
+                else {
+                    addressInput.attr('pattern', initialPattern);
+                    addressInput.attr('title', initialTitle);
+                    addressInput.val("0.0");
+                }
+            });
+        });
+    </script>
 }

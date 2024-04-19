@@ -1,15 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Net;
-using System.Net.Sockets;
-using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
-using EthernetGlobalData.Interfaces;
-using Microsoft.EntityFrameworkCore;
-using EthernetGlobalData.Data;
-using EthernetGlobalData.Services;
-using Humanizer;
+﻿using EthernetGlobalData.Data;
 
 namespace EthernetGlobalData.Protocol
 {
@@ -17,20 +6,20 @@ namespace EthernetGlobalData.Protocol
     {
         private List<Task> tasks = new List<Task>();
         private CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
-        private readonly ProtocolContext _context;
+        private readonly ApplicationDbContext _context;
 
-        public Producer(ProtocolContext context)
+        public Producer(ApplicationDbContext context)
         {
             _context = context;
         }
 
-        public void Start(IList<EthernetGlobalData.Models.Node> nodes)
+        public async Task Start(IList<EthernetGlobalData.Models.Node> nodes, IList<Models.Channel> channels)
         {
             foreach (Models.Node node in nodes)
             {
                 if (node.CommunicationType != "Producer")
-                    continue;                                                
-                
+                    continue;
+
                 Protocol.Header header = new Protocol.Header
                 {
                     ID = node.Channel.IP,
@@ -64,10 +53,10 @@ namespace EthernetGlobalData.Protocol
         }
 
         public async Task Communicate(Protocol protocol)
-        {            
+        {
             protocol.Write();
 
-            protocol.UpdateMessageNumber();   
+            protocol.UpdateMessageNumber();
 
             await Task.Delay(TimeSpan.FromSeconds(1));
         }

@@ -8,6 +8,6 @@ namespace EthernetGlobalData.Interfaces
 
         void AddChannel(Channel Channel);
 
-        void DeleteChannel(int id);        
+        void DeleteChannel(int id);
     }
 }

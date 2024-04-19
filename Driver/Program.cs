@@ -1,8 +1,7 @@
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
 using EthernetGlobalData.Data;
-using EthernetGlobalData.Services;
 using EthernetGlobalData.Interfaces;
+using EthernetGlobalData.Services;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -11,8 +10,17 @@ builder.Services.AddRazorPages();
 
 builder.Services.AddScoped<IPointService, PointService>();
 
-builder.Services.AddDbContext<ProtocolContext>(options =>
-    options.UseSqlite(builder.Configuration.GetConnectionString("ProtocolContext") ?? throw new InvalidOperationException("Connection string 'ProtocolContext' not found.")));
+builder.Services.AddDbContext<ApplicationDbContext>(options =>
+    options.UseSqlite(builder.Configuration.GetConnectionString("ApplicationDbContext") ?? throw new InvalidOperationException("Connection string 'ApplicationDbContext' not found.")));
+
+builder.Services.AddDistributedMemoryCache();
+
+builder.Services.AddSession(options =>
+{
+    options.IdleTimeout = TimeSpan.FromSeconds(300);
+    options.Cookie.HttpOnly = true;
+    options.Cookie.IsEssential = true;
+});
 
 var app = builder.Build();
 
@@ -29,17 +37,20 @@ using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
 
-    var context = services.GetRequiredService<ProtocolContext>();
+    var context = services.GetRequiredService<ApplicationDbContext>();
     context.Database.EnsureCreated();
     // DbInitializer.Initialize(context);
 }
 
 app.UseHttpsRedirection();
+
 app.UseStaticFiles();
 
 app.UseRouting();
 
 app.UseAuthorization();
+
+app.UseSession();
 
 app.MapRazorPages();
 

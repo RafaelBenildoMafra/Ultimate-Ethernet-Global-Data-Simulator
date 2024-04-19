@@ -8,10 +8,44 @@
 <h1>Connect Page</h1>
 
 <div style="margin-top: 20px;">
-    <form id="form" method="post">
-        <input id="comm-button" type="submit" value="Start Communication" class="btn btn-success" />
+    <form method="post">
+        <button type="submit" name="started" id="started-button" class="btn btn-success" value="started" style="display: none;">Communicating</button>
+        <button type="submit" name="start" id="comm-button" class="btn btn-success" value="start">Start</button>
+        <button type="submit" name="stop" id="stop-button" class="btn btn-danger" value="stop">Stop</button>        
     </form>
 </div>
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>
+                Communication Point
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.Point[0].Value)
+            </th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var item in Model.Point)
+        {
+            <tr>
+                <td>
+                    @Html.DisplayFor(modelItem => item.Name)
+                </td>
+                <td>
+                    @Html.DisplayFor(modelItem => item.Value)
+                </td>
+                <td>
+                    <a asp-page="../Point/Edit" asp-route-id="@item.PointID">Edit</a> |
+                    <a asp-page="../Point/Details" asp-route-id="@item.PointID">Details</a> |
+                    <a asp-page="../Point/Delete" asp-route-id="@item.PointID">Delete</a>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
 
 <!-- Include jQuery for simplicity -->
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
@@ -19,12 +53,26 @@
 <script>
     $(document).ready(function () {
 
-        $('#form').submit(function () {
-            
-            $('#comm-button').val('Communicating');
-            $('#comm-button').prop('disabled', true);
-            
+        var isRunning = '@HttpContext.Session.GetBoolean("_Running")';
+
+        if (isRunning === 'True') {
+
+            console.log("ok");
+            $("#comm-button").hide();
+            $("#started-button").prop('disabled', true);
+            $("#started-button").show();
+        }
+
+        $('#comm-button').click(function () {     
+            $("#comm-button").hide();
+            $("#started-button").prop('disabled', true);
+            $("#started-button").show();
             return true;
+        });
+
+        $('#stop-button').click(function () {
+            $("#started-button").hide();
+            $('#comm-button').show();
         });
     });
 </script>
