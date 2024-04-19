@@ -6,9 +6,9 @@ namespace EthernetGlobalData.Services
 {
     public class ChannelService : IChannelService
     {
-        private readonly ProtocolContext _context = default!;
+        private readonly ApplicationDbContext _context = default!;
 
-        public ChannelService(ProtocolContext context)
+        public ChannelService(ApplicationDbContext context)
         {
             _context = context;
         }

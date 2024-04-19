@@ -1,26 +1,21 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
+﻿using EthernetGlobalData.Data;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
-using EthernetGlobalData.Data;
-using EthernetGlobalData.Models;
 
 namespace EthernetGlobalData.Pages.Point
 {
     public class DetailsModel : PageModel
     {
-        private readonly ProtocolContext _context;
+        private readonly ApplicationDbContext _context;
 
-        public DetailsModel(ProtocolContext context)
+        public DetailsModel(ApplicationDbContext context)
         {
             _context = context;
         }
 
         public EthernetGlobalData.Models.Point Point { get; set; } = default!;
-        
+
         public async Task<IActionResult> OnGetAsync(int? id)
         {
             if (id == null)
@@ -30,14 +25,14 @@ namespace EthernetGlobalData.Pages.Point
 
             var point = await _context.Point
                 .Include(p => p.Node.Channel)
-                .FirstOrDefaultAsync(m => m.PointID == id);            
+                .FirstOrDefaultAsync(m => m.PointID == id);
 
             if (point == null)
             {
-                return NotFound();               
+                return NotFound();
             }
             else
-            {                   
+            {
                 Point = point;
             }
             return Page();

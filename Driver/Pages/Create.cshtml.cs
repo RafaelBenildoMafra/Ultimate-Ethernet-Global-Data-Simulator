@@ -1,19 +1,13 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
-using Microsoft.AspNetCore.Mvc.Rendering;
-using EthernetGlobalData.Data;
 
 namespace EthernetGlobalData.Models
 {
     public class CreateModel : PageModel
     {
-        private readonly EthernetGlobalData.Data.ProtocolContext _context;
+        private readonly EthernetGlobalData.Data.ApplicationDbContext _context;
 
-        public CreateModel(EthernetGlobalData.Data.ProtocolContext context)
+        public CreateModel(EthernetGlobalData.Data.ApplicationDbContext context)
         {
             _context = context;
         }

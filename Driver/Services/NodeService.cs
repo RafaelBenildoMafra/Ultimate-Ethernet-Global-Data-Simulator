@@ -5,9 +5,9 @@ namespace EthernetGlobalData.Services
 {
     public class NodeService
     {
-        private readonly ProtocolContext _context = default!;
+        private readonly ApplicationDbContext _context = default!;
 
-        public NodeService(ProtocolContext context)
+        public NodeService(ApplicationDbContext context)
         {
             _context = context;
         }

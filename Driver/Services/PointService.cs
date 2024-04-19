@@ -1,14 +1,14 @@
 ﻿using EthernetGlobalData.Data;
-using EthernetGlobalData.Models;
 using EthernetGlobalData.Interfaces;
+using EthernetGlobalData.Models;
 
 namespace EthernetGlobalData.Services
 {
     public class PointService : IPointService
     {
-        private readonly ProtocolContext _context = default!;
+        private readonly ApplicationDbContext _context = default!;
 
-        public PointService(ProtocolContext context)
+        public PointService(ApplicationDbContext context)
         {
             _context = context;
         }

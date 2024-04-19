@@ -1,10 +1,8 @@
-﻿using System.Threading;
-
-namespace EthernetGlobalData.Protocol
+﻿namespace EthernetGlobalData.Protocol
 {
     public interface IProtocol
     {
-        void Start(IList<EthernetGlobalData.Models.Node> nodes, IList<Models.Channel> channels);
+        Task Start(IList<EthernetGlobalData.Models.Node> nodes, IList<Models.Channel> channels);
 
         void Stop();
 

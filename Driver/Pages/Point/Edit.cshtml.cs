@@ -1,22 +1,16 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
+﻿using EthernetGlobalData.Data;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
-using EthernetGlobalData.Data;
-using EthernetGlobalData.Models;
-using Microsoft.VisualStudio.Web.CodeGenerators.Mvc.View;
 
 namespace EthernetGlobalData.Pages.Point
 {
     public class EditModel : PageModel
     {
-        private readonly ProtocolContext _context;
+        private readonly ApplicationDbContext _context;
 
-        public EditModel(ProtocolContext context)
+        public EditModel(ApplicationDbContext context)
         {
             _context = context;
         }
@@ -40,7 +34,7 @@ namespace EthernetGlobalData.Pages.Point
 
             Point = point;
             ViewData["NodeID"] = new SelectList(_context.Node, "NodeID", "NodeName");
-            return Page();            
+            return Page();
         }
 
         public async Task<IActionResult> OnPostAsync()

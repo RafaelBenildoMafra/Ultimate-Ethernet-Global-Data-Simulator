@@ -1,13 +1,10 @@
-﻿using System;
+﻿using EthernetGlobalData.Models;
 using System.Collections;
-using System.Net;
-using System.Net.Sockets;
-using EthernetGlobalData.Models;
 
 namespace EthernetGlobalData.Protocol
 {
     public class Protocol
-    {   
+    {
         public UDP TransportLayer { get; set; }
         public const int HeaderSize = 32;
         public List<byte> Payload = new List<byte>();
@@ -18,7 +15,7 @@ namespace EthernetGlobalData.Protocol
             public int ExchangeID { get; set; }
             public int MajorSignature { get; set; }
             public int MinorSignature { get; set; }
-            public ICollection<Point> Points { get; set; }   
+            public ICollection<Point> Points { get; set; }
         }
 
         public Header MessageHeader { get; set; }
@@ -33,7 +30,7 @@ namespace EthernetGlobalData.Protocol
 
         public void Write()
         {
-            byte[] headerBytes = new byte[HeaderSize];            
+            byte[] headerBytes = new byte[HeaderSize];
 
             BitConverter.GetBytes(0XD).CopyTo(headerBytes, 0); //PDU type
             BitConverter.GetBytes(0X1).CopyTo(headerBytes, 1); //PDU version number
@@ -98,7 +95,7 @@ namespace EthernetGlobalData.Protocol
                     byte access = Payload[HeaderSize + Convert.ToInt32(address[0])];
 
                     BitArray bitArray = new BitArray(new byte[] { access });
-  
+
                     bitArray.Set(Convert.ToInt32(address[1]), point.Value == 1 ? true : false);
 
                     // Convert the modified BitArray back to a byte
@@ -120,7 +117,7 @@ namespace EthernetGlobalData.Protocol
             byte[] recievedBytes = TransportLayer.Receive();
 
             if (recievedBytes != null)
-            {                
+            {
                 try
                 {
                     switch (messageState)
@@ -133,12 +130,12 @@ namespace EthernetGlobalData.Protocol
                             }
                             break;
 
-                        case "Producer": 
+                        case "Producer":
 
                             string[] parts = this.MessageHeader.ID.Split('.');
 
                             for (int i = 0; i < 4; i++)
-                            {   
+                            {
                                 if (recievedBytes[4 + i] != byte.Parse(parts[i]))
                                 {
                                     break;
@@ -192,24 +189,24 @@ namespace EthernetGlobalData.Protocol
 
                                 return Payload;
                             }
-                    }                    
+                    }
                     return null;
                 }
                 catch (Exception ex)
                 {
                     return null;
-                }          
+                }
             }
             else
             {
                 return null;
             }
         }
-        
+
 
         public void UpdateMessageNumber()
         {
-            MessageNumber ++;
+            MessageNumber++;
         }
     }
 }

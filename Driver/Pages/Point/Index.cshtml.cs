@@ -1,21 +1,14 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Mvc;
+﻿using EthernetGlobalData.Data;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
-using EthernetGlobalData.Data;
-using EthernetGlobalData.Models;
-using EthernetGlobalData.Protocol;
 
 namespace EthernetGlobalData.Pages.Point
 {
     public class IndexModel : PageModel
     {
-        private readonly ProtocolContext _context;
+        private readonly ApplicationDbContext _context;
 
-        public IndexModel(ProtocolContext context)
+        public IndexModel(ApplicationDbContext context)
         {
             _context = context;
         }
@@ -27,7 +20,7 @@ namespace EthernetGlobalData.Pages.Point
             Point = await _context.Point
                 .Include(p => p.Node)
                 .ToListAsync();
-            
+
         }
     }
 }

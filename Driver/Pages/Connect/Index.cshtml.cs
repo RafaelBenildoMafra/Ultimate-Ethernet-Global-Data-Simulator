@@ -1,26 +1,25 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
+﻿using EthernetGlobalData.Data;
+using EthernetGlobalData.Protocol;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
-using EthernetGlobalData.Data;
-using EthernetGlobalData.Models;
-using EthernetGlobalData.Protocol;
-using Microsoft.EntityFrameworkCore.Metadata.Internal;
 
 namespace EthernetGlobalData.Pages.Connect
 {
     public class IndexModel : PageModel
     {
-        private readonly ProtocolContext _context;
+        private readonly ApplicationDbContext _context;
+        private readonly IServiceProvider _serviceProvider;
+        private Task consumerTask;
+        public const string SessionKey = "_Running";
 
-        public IndexModel(ProtocolContext context)
+        public IndexModel(ApplicationDbContext context, IServiceProvider serviceProvider)
         {
             _context = context;
+            _serviceProvider = serviceProvider;
         }
 
+        public IList<EthernetGlobalData.Models.Point> Point { get; set; } = default!;
         public IList<EthernetGlobalData.Models.Node> Node { get; set; } = default!;
         public IList<EthernetGlobalData.Models.Channel> Channel { get; set; } = default!;
 
@@ -31,10 +30,14 @@ namespace EthernetGlobalData.Pages.Connect
                 .Include(n => n.Points)
                 .ToListAsync();
 
+            Point = await _context.Point
+                .Include(p => p.Node)
+                .ToListAsync();
+
             Channel = await _context.Channel.ToListAsync();
         }
 
-        public async Task<IActionResult> OnPostAsync()
+        public async Task<IActionResult> OnPostAsync(string? start, string? stop)
         {
             if (!ModelState.IsValid)
             {
@@ -46,15 +49,47 @@ namespace EthernetGlobalData.Pages.Connect
                 .Include(n => n.Points)
                 .ToListAsync();
 
+            Point = await _context.Point
+                .Include(p => p.Node)
+                .ToListAsync();
+
             Channel = await _context.Channel.ToListAsync();
 
-            Producer producer = new Producer(_context);
+            Consumer consumer = new Consumer(_serviceProvider);
 
-            Consumer consumer = new Consumer(_context);
-                
-            consumer.Start(Node, Channel);
+            if (!string.IsNullOrEmpty(start))
+            {
+                HttpContext.Session.SetBoolean("_Running", true);
+
+                bool result = await Consumer.Start(Node, Channel);
+
+                await Task.Delay(1000);
+            }
+            else if (!string.IsNullOrEmpty(stop))
+            {
+                HttpContext.Session.SetBoolean("_Running", false);
+
+                consumer.Stop();
+            }
 
             return RedirectToPage("./Index");
+        }
+    }
+
+    public static class SessionExtensions
+    {
+        public static bool? GetBoolean(this ISession session, string key)
+        {
+            var data = session.Get(key);
+            if (data == null)
+            {
+                return null;
+            }
+            return BitConverter.ToBoolean(data, 0);
+        }
+        public static void SetBoolean(this ISession session, string key, bool value)
+        {
+            session.Set(key, BitConverter.GetBytes(value));
         }
     }
 }
