@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore.ThreadSafe;
 
 namespace EthernetGlobalData.Data
 {
-    public class ApplicationDbContext : ThreadSafeDbContext
+    public class ApplicationDbContext : DbContext
     {
         public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
             : base(options)

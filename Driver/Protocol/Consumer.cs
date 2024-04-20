@@ -3,6 +3,9 @@ using EthernetGlobalData.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Collections;
+using System.Drawing;
+using System.Xml.Linq;
+using static System.Formats.Asn1.AsnWriter;
 
 namespace EthernetGlobalData.Protocol
 {
@@ -12,12 +15,12 @@ namespace EthernetGlobalData.Protocol
         private static List<Thread> threads = new List<Thread>();
         private static CancellationTokenSource token = new CancellationTokenSource();
         private static List<byte> Payload = new List<byte>();
-        private static IServiceProvider _serviceProvider;
+        private static IServiceScopeFactory _serviceProvider;
 
         [BindProperty]
         public EthernetGlobalData.Models.Point Point { get; set; } = default!;
 
-        public Consumer(IServiceProvider serviceProvider)
+        public Consumer(IServiceScopeFactory serviceProvider)
         {
             _serviceProvider = serviceProvider;
         }
@@ -25,47 +28,48 @@ namespace EthernetGlobalData.Protocol
         public static async Task<bool> Start(IList<Models.Node> nodes, IList<Models.Channel> channels)
         {
             foreach (Channel channel in channels)
-            {
+            {                
                 Thread thread = new Thread(() =>
                 {
                     UDP transportLayer = new UDP(channel.IP, channel.Port);
 
                     foreach (Node node in nodes)
                     {
-                        using (var scope = _serviceProvider.CreateScope())
-                        {
-                            ApplicationDbContext context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-
-                            if (node.CommunicationType != "Consumer")
-                                continue;
-
-                            Protocol.Header header = new Protocol.Header
-                            {
-                                ID = node.Channel.IP,
-                                MajorSignature = node.MajorSignature,
-                                MinorSignature = node.MinorSignature,
-                                ExchangeID = node.Exchange,
-                                Points = node.Points,
-                            };
-
-                            Protocol protocol = new Protocol(transportLayer, header);
-
-                            Task task = Task.Run(async () =>
-                            {
-                                await Communicate(protocol, context);
-
-                            }, token.Token);
-
-                            tasks.Add(task);
-                        }
-                    }
+                        StartNode(node, transportLayer);
+                    }                    
                 });
                 thread.Name = channel.ChannelName;
                 thread.Start();
                 threads.Add(thread);
+               
             }
 
             return true;
+        }
+
+        private static void StartNode(Node node, UDP transportLayer)
+        {
+            if (node.CommunicationType == "Consumer")
+            {                   
+                Protocol.Header header = new Protocol.Header
+                {
+                    ID = node.Channel.IP,
+                    MajorSignature = node.MajorSignature,
+                    MinorSignature = node.MinorSignature,
+                    ExchangeID = node.Exchange,
+                    Points = node.Points,
+                };
+
+                Protocol protocol = new Protocol(transportLayer, header);
+
+                Task task = Task.Run(async () =>
+                {
+                    await Communicate(protocol);                    
+
+                }, token.Token);
+
+                tasks.Add(task);
+            }            
         }
 
         public void Stop()
@@ -86,26 +90,33 @@ namespace EthernetGlobalData.Protocol
             tasks.Clear();
         }
 
-        public static async Task Communicate(Protocol protocol, ApplicationDbContext context)
-        {
+        public static async Task Communicate(Protocol protocol)
+        {            
             try
             {
                 while (!token.IsCancellationRequested)
                 {
-                    protocol.Read();
-
-                    if (protocol.Payload == null)
+                    using (var scope = _serviceProvider.CreateScope())
                     {
-                        protocol.TransportLayer.Close();
+                        ApplicationDbContext context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+                        
+                        protocol.Read();
 
-                        token.Cancel();
+                        if (protocol.Payload == null)
+                        {
+                            protocol.TransportLayer.Close();
 
-                        return;
+                            token.Cancel();
+
+                            return;
+                        }
+
+                        await TreatPayload(protocol, context);
+
+                        protocol.Payload.Clear();
+
+                        context.Dispose();
                     }
-
-                    await TreatPayload(protocol, context);
-
-                    protocol.Payload.Clear();
                 }
             }
             catch (Exception e)
@@ -160,7 +171,7 @@ namespace EthernetGlobalData.Protocol
                             bytePos = Convert.ToUInt16(point.Address);
 
                             byte[] byteReal = {protocol.Payload[bytePos], protocol.Payload[bytePos + 1], protocol.Payload[bytePos + 2],
-                            protocol.Payload[bytePos + 3]};
+                        protocol.Payload[bytePos + 3]};
 
                             point.Value = BitConverter.ToUInt32(byteReal, 0);
 
@@ -173,14 +184,15 @@ namespace EthernetGlobalData.Protocol
                             bytePos = Convert.ToUInt16(point.Address);
 
                             byte[] byteLong = {protocol.Payload[bytePos], protocol.Payload[bytePos + 1], protocol.Payload[bytePos + 2],
-                            protocol.Payload[bytePos + 3], protocol.Payload[bytePos + 4], protocol.Payload[bytePos + 5],
-                            protocol.Payload[bytePos + 6], protocol.Payload[bytePos + 7] };
+                        protocol.Payload[bytePos + 3], protocol.Payload[bytePos + 4], protocol.Payload[bytePos + 5],
+                        protocol.Payload[bytePos + 6], protocol.Payload[bytePos + 7] };
 
                             point.Value = BitConverter.ToInt64(byteLong, 0);
 
                             await UpdatePoint(point, context);
 
                             break;
+
                     }
                 }
                 catch (Exception e)
@@ -188,15 +200,24 @@ namespace EthernetGlobalData.Protocol
                     Console.WriteLine(e);
                 }
             }
+            try
+            {
+                await context.SaveChangesAsync();
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                throw;
+            }
+            
         }
 
         private static async Task UpdatePoint(Models.Point point, ApplicationDbContext context)
         {
-            context.Attach(point).State = EntityState.Modified;
-
+            
             try
             {
-                await context.SaveChangesAsync();
+                context.Attach(point).State = EntityState.Modified;
+
             }
             catch (DbUpdateConcurrencyException)
             {
@@ -209,7 +230,6 @@ namespace EthernetGlobalData.Protocol
                     throw;
                 }
             }
-
         }
 
         private static bool PointExists(int id, ApplicationDbContext context)

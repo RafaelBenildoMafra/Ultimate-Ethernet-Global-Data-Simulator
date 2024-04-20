@@ -9,11 +9,11 @@ namespace EthernetGlobalData.Pages.Connect
     public class IndexModel : PageModel
     {
         private readonly ApplicationDbContext _context;
-        private readonly IServiceProvider _serviceProvider;
+        private readonly IServiceScopeFactory _serviceProvider;
         private Task consumerTask;
         public const string SessionKey = "_Running";
 
-        public IndexModel(ApplicationDbContext context, IServiceProvider serviceProvider)
+        public IndexModel(ApplicationDbContext context, IServiceScopeFactory serviceProvider)
         {
             _context = context;
             _serviceProvider = serviceProvider;
@@ -61,9 +61,8 @@ namespace EthernetGlobalData.Pages.Connect
             {
                 HttpContext.Session.SetBoolean("_Running", true);
 
-                bool result = await Consumer.Start(Node, Channel);
-
-                await Task.Delay(1000);
+                await Consumer.Start(Node, Channel);
+                             
             }
             else if (!string.IsNullOrEmpty(stop))
             {
