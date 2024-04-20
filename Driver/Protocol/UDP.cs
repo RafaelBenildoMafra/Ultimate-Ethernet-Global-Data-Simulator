@@ -1,5 +1,6 @@
 ﻿using System.Net;
 using System.Net.Sockets;
+using static EthernetGlobalData.Protocol.Protocol;
 
 namespace EthernetGlobalData.Protocol
 {
@@ -34,7 +35,7 @@ namespace EthernetGlobalData.Protocol
             try
             {
                 byte[] receiveBytes = this.Client.Receive(ref this.localEP);
-
+                
                 return receiveBytes;
             }
             catch (Exception ex)

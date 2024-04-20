@@ -55,20 +55,20 @@ namespace EthernetGlobalData.Pages.Connect
 
             Channel = await _context.Channel.ToListAsync();
 
-            Consumer consumer = new Consumer(_serviceProvider);
+            EthernetGlobalData.Protocol.Protocol protocol = new EthernetGlobalData.Protocol.Protocol(_serviceProvider);
 
             if (!string.IsNullOrEmpty(start))
             {
                 HttpContext.Session.SetBoolean("_Running", true);
 
-                await Consumer.Start(Node, Channel);
+                await protocol.Start(Node, Channel);
                              
             }
             else if (!string.IsNullOrEmpty(stop))
             {
                 HttpContext.Session.SetBoolean("_Running", false);
 
-                consumer.Stop();
+                protocol.Stop();
             }
 
             return RedirectToPage("./Index");

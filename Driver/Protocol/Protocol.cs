@@ -1,212 +1,142 @@
-﻿using EthernetGlobalData.Models;
+﻿using EthernetGlobalData.Data;
+using EthernetGlobalData.Models;
+using NuGet.Common;
 using System.Collections;
+using System.Threading;
+using static EthernetGlobalData.Protocol.Protocol;
 
 namespace EthernetGlobalData.Protocol
 {
     public class Protocol
-    {
-        public UDP TransportLayer { get; set; }
+    {        
+        private static CancellationTokenSource token = new CancellationTokenSource();
+        private static IServiceScopeFactory? _serviceProvider;
         public const int HeaderSize = 32;
-        public List<byte> Payload = new List<byte>();
+        private static List<Thread> threads = new List<Thread>();
+        public static UDP TransportLayer { get; set; }
 
-        public struct Header
+        public class MessageData
         {
-            public string ID { get; set; }
-            public int ExchangeID { get; set; }
-            public int MajorSignature { get; set; }
-            public int MinorSignature { get; set; }
-            public ICollection<Point> Points { get; set; }
+            public List<byte> Payload { get; set; }
+            public MessageStatus Status { get; set; }
+
+            public MessageData()
+            {
+
+            }
         }
-
-        public Header MessageHeader { get; set; }
-
+        public enum MessageStatus
+        {
+            Recieved,
+            Readed,
+            Stored,
+            Discarded,
+            ErrorRecieving,
+            ErrorReading,
+            ErrorStoring
+        }        
         public int MessageNumber { get; set; }
 
-        public Protocol(UDP transportLayer, Header messageHeader)
+        public Protocol(IServiceScopeFactory serviceScopeFactory)
         {
-            TransportLayer = transportLayer;
-            MessageHeader = messageHeader;
+            _serviceProvider = serviceScopeFactory;
         }
 
-        public void Write()
+        public async Task Start(IList<Models.Node> nodes, IList<Models.Channel> channels)
         {
-            byte[] headerBytes = new byte[HeaderSize];
-
-            BitConverter.GetBytes(0XD).CopyTo(headerBytes, 0); //PDU type
-            BitConverter.GetBytes(0X1).CopyTo(headerBytes, 1); //PDU version number
-            BitConverter.GetBytes(MessageNumber).CopyTo(headerBytes, 2); //Request ID
-
-            // Producer ID
-            string[] octets = MessageHeader.ID.Split('.');
-            BitConverter.GetBytes(Convert.ToInt16(octets[0])).CopyTo(headerBytes, 4);
-            BitConverter.GetBytes(Convert.ToInt16(octets[1])).CopyTo(headerBytes, 5);
-            BitConverter.GetBytes(Convert.ToInt16(octets[2])).CopyTo(headerBytes, 6);
-            BitConverter.GetBytes(Convert.ToInt16(octets[3])).CopyTo(headerBytes, 7);
-
-            // Exchange ID
-            BitConverter.GetBytes(MessageHeader.ExchangeID).CopyTo(headerBytes, 8);
-
-            // Timestamp
-            byte[] byteTime = BitConverter.GetBytes(DateTimeOffset.UtcNow.ToUnixTimeSeconds());
-            byteTime.CopyTo(headerBytes, 12);
-
-            // Status
-            BitConverter.GetBytes(0x00).CopyTo(headerBytes, 20);
-
-            // Signature
-            BitConverter.GetBytes(MessageHeader.MinorSignature).CopyTo(headerBytes, 24);
-            BitConverter.GetBytes(MessageHeader.MajorSignature).CopyTo(headerBytes, 25);
-
-            // Reserved
-            BitConverter.GetBytes(0x00000000).CopyTo(headerBytes, 28);
-
-            //////////////////// Payload ////////////////////
-            Payload.InsertRange(0, headerBytes);
-
-            foreach (Point point in MessageHeader.Points)
+            try
             {
-                if (point.DataType != DataType.Boolean)
+                foreach (Channel channel in channels)
                 {
-                    switch (point.DataType)
+                    Thread thread = new Thread(() =>
                     {
-                        case DataType.Word:
-                            short wordValue = Convert.ToInt16(point.Value);
-                            byte[] wordBytes = BitConverter.GetBytes(wordValue);
-                            Payload.InsertRange(HeaderSize + Convert.ToInt16(point.Address), wordBytes);
-                            break;
-                        case DataType.Real:
-                            float realValue = Convert.ToSingle(point.Value);
-                            byte[] realBytes = BitConverter.GetBytes(realValue);
-                            Payload.InsertRange(HeaderSize + Convert.ToInt16(point.Address), realBytes);
-                            break;
-                        case DataType.Long:
-                            long longValue = Convert.ToInt64(point.Value);
-                            byte[] longBytes = BitConverter.GetBytes(longValue);
-                            Payload.InsertRange(HeaderSize + Convert.ToInt16(point.Address), longBytes);
-                            break;
+                        UDP transportLayer = new UDP(channel.IP, channel.Port);
+
+                        StartChannel(nodes, ref transportLayer);
+                    });
+                    thread.Name = channel.ChannelName;
+                    thread.Start();
+                    threads.Add(thread);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine(ex.ToString());
+                Console.ResetColor();
+            }
+        }
+
+        private static void StartChannel(IList<Models.Node> nodes, ref UDP transportLayer)
+        {
+            try
+            {                
+                foreach (Node node in nodes)
+                {
+                    if (node.CommunicationType == "Consumer")
+                    {
+                        Consumer.MessageHeader header = new Consumer.MessageHeader
+                        {
+                            ID = node.Channel.IP,
+                            MajorSignature = node.MajorSignature,
+                            MinorSignature = node.MinorSignature,
+                            ExchangeID = node.Exchange,
+                            Points = node.Points,
+                        };
+
+                        new Consumer(header, new MessageData());
+                    }
+                    else
+                    {
+                        //Producer.MessageHeader header = new Producer.MessageHeader
+                        //{
+                        //    ID = node.Channel.IP,
+                        //    MajorSignature = node.MajorSignature,
+                        //    MinorSignature = node.MinorSignature,
+                        //    ExchangeID = node.Exchange,
+                        //    Points = node.Points,
+                        //};
+
+                        //Producers.Add(new Producer(header));
                     }
                 }
-                else
-                {
-                    string[] address;
 
-                    address = point.Address.Split(".");
-
-                    byte access = Payload[HeaderSize + Convert.ToInt32(address[0])];
-
-                    BitArray bitArray = new BitArray(new byte[] { access });
-
-                    bitArray.Set(Convert.ToInt32(address[1]), point.Value == 1 ? true : false);
-
-                    // Convert the modified BitArray back to a byte
-                    byte[] byteArray = new byte[(bitArray.Length + 7) / 8];
-                    bitArray.CopyTo(byteArray, 0);
-                    access = byteArray[0];
-
-                    Payload[HeaderSize + Convert.ToInt32(address[0])] = access;
-                }
+                Communicate(ref transportLayer);
             }
-
-            TransportLayer.Send(Payload.ToArray());
-        }
-
-        public List<byte> Read()
-        {
-            string messageState = "Header";
-
-            byte[] recievedBytes = TransportLayer.Receive();
-
-            if (recievedBytes != null)
+            catch (Exception ex)
             {
-                try
-                {
-                    switch (messageState)
-                    {
-                        case "Header":
-
-                            if (recievedBytes[0] == 0x0D)
-                            {
-                                goto case "Producer";
-                            }
-                            break;
-
-                        case "Producer":
-
-                            string[] parts = this.MessageHeader.ID.Split('.');
-
-                            for (int i = 0; i < 4; i++)
-                            {
-                                if (recievedBytes[4 + i] != byte.Parse(parts[i]))
-                                {
-                                    break;
-                                }
-                                else if (i == 3)
-                                {
-                                    goto case "Exchange";
-                                }
-                            }
-
-                            break;
-
-                        case "Exchange": //Exchange Identifier
-
-                            byte[] exchange = new byte[4];
-
-                            for (int i = 0; i < 4; i++)
-                            {
-                                exchange[i] = recievedBytes[8 + i];
-                            }
-
-                            if (BitConverter.ToInt32(exchange, 0) == this.MessageHeader.ExchangeID)
-                            {
-                                goto case "Signature";
-                            }
-
-                            break;
-
-                        case "Signature":
-
-                            if (recievedBytes[24] == this.MessageHeader.MinorSignature && recievedBytes[25]
-                                == this.MessageHeader.MajorSignature)
-                            {
-                                goto case "Payload";
-                            }
-
-                            break;
-
-                        case "Payload": //Payload Verification
-
-                            if (recievedBytes.Length > 1432)
-                            {
-                                break;
-                            }
-                            else
-                            {
-                                for (int i = 32; i < recievedBytes.Length; i++)
-                                {
-                                    Payload.Add(recievedBytes[i]);
-                                }
-
-                                return Payload;
-                            }
-                    }
-                    return null;
-                }
-                catch (Exception ex)
-                {
-                    return null;
-                }
-            }
-            else
-            {
-                return null;
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine(ex.ToString());
+                Console.ResetColor();
             }
         }
 
-
-        public void UpdateMessageNumber()
+        public void Stop()
         {
-            MessageNumber++;
+            UDP.CloseAllConnections();
+            token.Cancel();
+        }
+
+        public static MessageStatus Communicate(ref UDP transportLayer)
+        {
+            try
+            {
+                while (!token.IsCancellationRequested)
+                {
+
+                    Consumer.Start(transportLayer, token, _serviceProvider);
+                    
+                                                                
+                }
+                return MessageStatus.Recieved;
+            }
+            catch (Exception ex)
+            {   
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine(ex);
+                Console.ResetColor();
+                return MessageStatus.ErrorRecieving;
+            }
         }
     }
 }
