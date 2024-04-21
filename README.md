@@ -11,7 +11,7 @@ The EGD protocol was developed in collaboration between GE Fanuc Automation and 
 with the aim of enabling data exchange between PLCs and computers. It was designed to provide flexibility and coordination between control devices, 
 enabling the efficient transmission of critical information in industrial environments.
 
-The protocol is based on standard internet protocols to share information between controllers, 
+The protocol is based on UDP to share information between controllers, 
 exchanging data samples, as illustrated in the figure below. Each packet contains a data sample or snapshot of a controller's memory. 
 These samples are periodically sent to one or more peer controllers that store the data for use in application tasks; 
 controllers can both read from and write to the network. Each data sample is uniquely identified to relate it to a definition describing the data it contains, 
