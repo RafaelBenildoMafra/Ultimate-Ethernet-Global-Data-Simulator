@@ -49,6 +49,8 @@ namespace EthernetGlobalData.Protocol
                     {
                         using (var service = scope.CreateScope())
                         {
+                            ApplicationDbContext context = service.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
                             consumer.Message = consumer.Read(recievedBytes);
 
                             if (consumer.Message.Status == MessageStatus.ErrorReading)
@@ -58,9 +60,7 @@ namespace EthernetGlobalData.Protocol
                                 token.Cancel();
 
                                 return;
-                            }
-
-                            ApplicationDbContext context = service.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+                            }                            
 
                             MessageStatus messageStatus = await consumer.TreatMessage(context);
                         }
@@ -73,6 +73,7 @@ namespace EthernetGlobalData.Protocol
             }
 
             return MessageStatus.Stored;
+
         }
 
         public MessageData Read(byte[] recievedBytes)

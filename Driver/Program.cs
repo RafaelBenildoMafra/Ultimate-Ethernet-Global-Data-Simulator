@@ -1,12 +1,14 @@
+using EthernetGlobalData.API;
 using EthernetGlobalData.Data;
 using EthernetGlobalData.Interfaces;
 using EthernetGlobalData.Services;
 using Microsoft.EntityFrameworkCore;
-
+using Microsoft.AspNetCore.SignalR;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container
 builder.Services.AddRazorPages();
+builder.Services.AddSignalR();
 
 builder.Services.AddScoped<IPointService, PointService>();
 
@@ -53,5 +55,7 @@ app.UseAuthorization();
 app.UseSession();
 
 app.MapRazorPages();
+
+app.MapHub<SingalR>("data-hub");
 
 app.Run();

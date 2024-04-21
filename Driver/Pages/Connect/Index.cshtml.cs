@@ -61,8 +61,7 @@ namespace EthernetGlobalData.Pages.Connect
             {
                 HttpContext.Session.SetBoolean("_Running", true);
 
-                await protocol.Start(Node, Channel);
-                             
+                await protocol.Start(Node, Channel);                             
             }
             else if (!string.IsNullOrEmpty(stop))
             {

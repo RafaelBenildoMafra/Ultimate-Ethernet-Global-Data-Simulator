@@ -1,115 +1,190 @@
-﻿//using EthernetGlobalData.Data;
-//using static EthernetGlobalData.Protocol.Consumer;
-//using static EthernetGlobalData.Protocol.Protocol;
-//using System.Collections;
+﻿using EthernetGlobalData.Data;
+using Microsoft.AspNetCore.Mvc;
+using System.Collections;
+using static EthernetGlobalData.Protocol.Protocol;
 
-//namespace EthernetGlobalData.Protocol
-//{
-//    public class Producer : IProtocol
-//    {
-//        private List<Task> tasks = new List<Task>();
-//        private CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
-//        private readonly ApplicationDbContext _context;
+namespace EthernetGlobalData.Protocol
+{
+    public class Producer
+    {
+        private List<Task> tasks = new List<Task>();
+        private CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
+        private readonly ApplicationDbContext _context;
 
-//        public Producer(ApplicationDbContext context)
-//        {
-//            _context = context;
-//        }
+        public struct MessageHeader
+        {
+            public string ID { get; set; }
+            public int ExchangeID { get; set; }
+            public int MajorSignature { get; set; }
+            public int MinorSignature { get; set; }
+            public int MessageNumber { get; set; }
+            public ICollection<Models.Point> Points { get; set; }
+        }
 
-//        public async Task Communicate(Protocol protocol)
-//        {
-//            protocol.Write();
+        [BindProperty]
+        public Models.Point Point { get; set; } = default!;
+        public MessageHeader Header { get; set; }
+        public MessageData Message { get; set; }
 
-//            protocol.UpdateMessageNumber();
+        public static List<Producer> Producers = new List<Producer>();
 
-//            await Task.Delay(TimeSpan.FromSeconds(1));
-//        }
+        public Producer(MessageHeader messageHeader, MessageData messageData)
+        {
+            Header = messageHeader;
+            Message = messageData;
+            Producers.Add(this);
+        }
 
-//        public void Write()
-//        {
-//            byte[] headerBytes = new byte[HeaderSize];
+        public static MessageStatus Start(UDP transportLayer, CancellationTokenSource token, IServiceScopeFactory scope)
+        {
+            try
+            {
+                byte[] recievedBytes = transportLayer.Receive();
 
-//            BitConverter.GetBytes(0XD).CopyTo(headerBytes, 0); //PDU type
-//            BitConverter.GetBytes(0X1).CopyTo(headerBytes, 1); //PDU version number
-//            BitConverter.GetBytes(MessageNumber).CopyTo(headerBytes, 2); //Request ID
+                foreach (Producer producer in Producers)
+                {
+                    Task task = Task.Run(async () =>
+                    {
+                        using (var service = scope.CreateScope())
+                        {
+                            ApplicationDbContext context = service.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
-//            // Producer ID
-//            string[] octets = MessageHeader.ID.Split('.');
-//            BitConverter.GetBytes(Convert.ToInt16(octets[0])).CopyTo(headerBytes, 4);
-//            BitConverter.GetBytes(Convert.ToInt16(octets[1])).CopyTo(headerBytes, 5);
-//            BitConverter.GetBytes(Convert.ToInt16(octets[2])).CopyTo(headerBytes, 6);
-//            BitConverter.GetBytes(Convert.ToInt16(octets[3])).CopyTo(headerBytes, 7);
+                            producer.Message.Status = producer.Write();
 
-//            // Exchange ID
-//            BitConverter.GetBytes(MessageHeader.ExchangeID).CopyTo(headerBytes, 8);
+                            if (producer.Message.Status == MessageStatus.ErrorReading)
+                            {
+                                transportLayer.Close();
 
-//            // Timestamp
-//            byte[] byteTime = BitConverter.GetBytes(DateTimeOffset.UtcNow.ToUnixTimeSeconds());
-//            byteTime.CopyTo(headerBytes, 12);
+                                token.Cancel();
 
-//            // Status
-//            BitConverter.GetBytes(0x00).CopyTo(headerBytes, 20);
+                                return;
+                            }                            
+                        }
+                    }, token.Token);
+                }
+                return MessageStatus.Sent;
+            }
+            catch
+            {
+                return MessageStatus.ErrorStoring;
+            }
 
-//            // Signature
-//            BitConverter.GetBytes(MessageHeader.MinorSignature).CopyTo(headerBytes, 24);
-//            BitConverter.GetBytes(MessageHeader.MajorSignature).CopyTo(headerBytes, 25);
+            return MessageStatus.Stored;
 
-//            // Reserved
-//            BitConverter.GetBytes(0x00000000).CopyTo(headerBytes, 28);
+        }
 
-//            //////////////////// Payload ////////////////////
-//            messageData.Bytes.InsertRange(0, headerBytes);
+        public MessageStatus Write()
+        {
+            try
+            {
+                byte[] headerBytes = new byte[HeaderSize];
 
-//            foreach (Point point in MessageHeader.Points)
-//            {
-//                if (point.DataType != DataType.Boolean)
-//                {
-//                    switch (point.DataType)
-//                    {
-//                        case DataType.Word:
-//                            short wordValue = Convert.ToInt16(point.Value);
-//                            byte[] wordBytes = BitConverter.GetBytes(wordValue);
-//                            messageData.Bytes.InsertRange(HeaderSize + Convert.ToInt16(point.Address), wordBytes);
-//                            break;
-//                        case DataType.Real:
-//                            float realValue = Convert.ToSingle(point.Value);
-//                            byte[] realBytes = BitConverter.GetBytes(realValue);
-//                            messageData.Bytes.InsertRange(HeaderSize + Convert.ToInt16(point.Address), realBytes);
-//                            break;
-//                        case DataType.Long:
-//                            long longValue = Convert.ToInt64(point.Value);
-//                            byte[] longBytes = BitConverter.GetBytes(longValue);
-//                            messageData.Bytes.InsertRange(HeaderSize + Convert.ToInt16(point.Address), longBytes);
-//                            break;
-//                    }
-//                }
-//                else
-//                {
-//                    string[] address;
+                BitConverter.GetBytes(0XD).CopyTo(headerBytes, 0); //PDU type
+                BitConverter.GetBytes(0X1).CopyTo(headerBytes, 1); //PDU version number
+                BitConverter.GetBytes(Header.MessageNumber).CopyTo(headerBytes, 2); //Request ID
 
-//                    address = point.Address.Split(".");
+                // Producer ID
+                string[] octets = Header.ID.Split('.');
+                BitConverter.GetBytes(Convert.ToInt16(octets[0])).CopyTo(headerBytes, 4);
+                BitConverter.GetBytes(Convert.ToInt16(octets[1])).CopyTo(headerBytes, 5);
+                BitConverter.GetBytes(Convert.ToInt16(octets[2])).CopyTo(headerBytes, 6);
+                BitConverter.GetBytes(Convert.ToInt16(octets[3])).CopyTo(headerBytes, 7);
 
-//                    byte access = messageData.Bytes[HeaderSize + Convert.ToInt32(address[0])];
+                // Exchange ID
+                BitConverter.GetBytes(Header.ExchangeID).CopyTo(headerBytes, 8);
 
-//                    BitArray bitArray = new BitArray(new byte[] { access });
+                // Timestamp
+                byte[] byteTime = BitConverter.GetBytes(DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+                byteTime.CopyTo(headerBytes, 12);
 
-//                    bitArray.Set(Convert.ToInt32(address[1]), point.Value == 1 ? true : false);
+                // Status
+                BitConverter.GetBytes(0x00).CopyTo(headerBytes, 20);
 
-//                    // Convert the modified BitArray back to a byte
-//                    byte[] byteArray = new byte[(bitArray.Length + 7) / 8];
-//                    bitArray.CopyTo(byteArray, 0);
-//                    access = byteArray[0];
+                // Signature
+                BitConverter.GetBytes(Header.MinorSignature).CopyTo(headerBytes, 24);
+                BitConverter.GetBytes(Header.MajorSignature).CopyTo(headerBytes, 25);
 
-//                    messageData.Bytes[HeaderSize + Convert.ToInt32(address[0])] = access;
-//                }
-//            }
+                // Reserved
+                BitConverter.GetBytes(0x00000000).CopyTo(headerBytes, 28);
 
-//            TransportLayer.Send(messageData.Bytes.ToArray());
-//        }
+                Message.Payload.InsertRange(0, headerBytes);
 
-//        public void UpdateMessageNumber()
-//        {
-//            MessageNumber++;
-//        }
-//    }
-//}
+                MessageStatus result = TreatMessage(Message);
+
+                TransportLayer.Send(Message.Payload.ToArray());
+
+                UpdateMessageNumber();
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.Message);
+
+                return MessageStatus.ErrorSending;
+            }
+        }
+
+        public MessageStatus TreatMessage(MessageData message)
+        {
+            try
+            {
+                foreach (Models.Point point in Header.Points)
+                {
+                    if (point.DataType != Models.DataType.Boolean)
+                    {
+                        switch (point.DataType)
+                        {
+                            case Models.DataType.Word:
+                                short wordValue = Convert.ToInt16(point.Value);
+                                byte[] wordBytes = BitConverter.GetBytes(wordValue);
+                                message.Payload.InsertRange(HeaderSize + Convert.ToInt16(point.Address), wordBytes);
+                                break;
+                            case Models.DataType.Real:
+                                float realValue = Convert.ToSingle(point.Value);
+                                byte[] realBytes = BitConverter.GetBytes(realValue);
+                                message.Payload.InsertRange(HeaderSize + Convert.ToInt16(point.Address), realBytes);
+                                break;
+                            case Models.DataType.Long:
+                                long longValue = Convert.ToInt64(point.Value);
+                                byte[] longBytes = BitConverter.GetBytes(longValue);
+                                message.Payload.InsertRange(HeaderSize + Convert.ToInt16(point.Address), longBytes);
+                                break;
+                        }
+                    }
+                    else
+                    {
+                        string[] address;
+
+                        address = point.Address.Split(".");
+
+                        byte access = Message.Payload[HeaderSize + Convert.ToInt32(address[0])];
+
+                        BitArray bitArray = new BitArray(new byte[] { access });
+
+                        bitArray.Set(Convert.ToInt32(address[1]), point.Value == 1 ? true : false);
+
+                        // Convert the modified BitArray back to a byte
+                        byte[] byteArray = new byte[(bitArray.Length + 7) / 8];
+                        bitArray.CopyTo(byteArray, 0);
+                        access = byteArray[0];
+
+                        Message.Payload[HeaderSize + Convert.ToInt32(address[0])] = access;
+                    }                    
+                }
+                return MessageStatus.Stored;
+            }
+            catch(Exception ex)
+            {
+                Console.WriteLine(ex.Message);
+
+                return MessageStatus.ErrorStoring;
+            }
+        }
+
+        public void UpdateMessageNumber()
+        {
+
+        }
+    }
+}

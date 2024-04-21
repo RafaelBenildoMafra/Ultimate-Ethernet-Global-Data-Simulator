@@ -20,19 +20,18 @@ namespace EthernetGlobalData.Protocol
             public List<byte> Payload { get; set; }
             public MessageStatus Status { get; set; }
 
-            public MessageData()
-            {
-
-            }
+            public MessageData(){ }
         }
         public enum MessageStatus
         {
             Recieved,
+            Sent,
             Readed,
             Stored,
             Discarded,
             ErrorRecieving,
             ErrorReading,
+            ErrorSending,
             ErrorStoring
         }        
         public int MessageNumber { get; set; }
@@ -88,16 +87,17 @@ namespace EthernetGlobalData.Protocol
                     }
                     else
                     {
-                        //Producer.MessageHeader header = new Producer.MessageHeader
-                        //{
-                        //    ID = node.Channel.IP,
-                        //    MajorSignature = node.MajorSignature,
-                        //    MinorSignature = node.MinorSignature,
-                        //    ExchangeID = node.Exchange,
-                        //    Points = node.Points,
-                        //};
+                        Producer.MessageHeader header = new Producer.MessageHeader
+                        {
+                            MessageNumber = 0,
+                            ID = node.Channel.IP,
+                            MajorSignature = node.MajorSignature,
+                            MinorSignature = node.MinorSignature,
+                            ExchangeID = node.Exchange,
+                            Points = node.Points,
+                        };
 
-                        //Producers.Add(new Producer(header));
+                        new Producer(header, new MessageData());
                     }
                 }
 
@@ -123,10 +123,8 @@ namespace EthernetGlobalData.Protocol
             {
                 while (!token.IsCancellationRequested)
                 {
-
                     Consumer.Start(transportLayer, token, _serviceProvider);
-                    
-                                                                
+                    Producer.Start(transportLayer, token, _serviceProvider);
                 }
                 return MessageStatus.Recieved;
             }
