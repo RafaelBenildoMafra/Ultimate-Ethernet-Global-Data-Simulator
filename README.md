@@ -33,7 +33,7 @@ or equal to the Minor signature number of the Producer. If these conditions are 
 Its structured organization in Producer ID and Exchange ID, along with the verification of Configuration Signatures, ensures the integrity of the transmitted data and synchronization 
 between Producers and Consumers. Figure below displays all the fields of the EGD protocol.
 
-![EGDpacket](https://github.com/RafaelBenildoMafra/Ultimate-Ethernet-Global-Data-Simulator/assets/62677441/a91d89c4-2b1f-40f0-8dfc-e9fcbf293354)
+![EGDpacket](https://github.com/RafaelBenildoMafra/Ultimate-Ethernet-Global-Data-Simulator/assets/62677441/cd4ae0ee-f6b7-4b71-9753-30395fd0a76c)
 
 <img width="350" alt="egd3" src="https://github.com/RafaelBenildoMafra/Ultimate-Ethernet-Global-Data-Simulator/assets/62677441/73f1f670-d96d-4de1-9ea6-cb64ac1c841a">
 
