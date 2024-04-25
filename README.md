@@ -35,3 +35,7 @@ between Producers and Consumers. Figure below displays all the fields of the EGD
 
 <img width="350" alt="egd3" src="https://github.com/RafaelBenildoMafra/Ultimate-Ethernet-Global-Data-Simulator/assets/62677441/73f1f670-d96d-4de1-9ea6-cb64ac1c841a">
 
+![EGDpacket](https://github.com/RafaelBenildoMafra/Ultimate-Ethernet-Global-Data-Simulator/assets/62677441/88c180d6-9cc0-448e-b224-bdfb921cd44e)
+
+
+
