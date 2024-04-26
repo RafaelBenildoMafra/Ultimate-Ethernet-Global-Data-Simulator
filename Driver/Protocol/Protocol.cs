@@ -9,18 +9,22 @@ namespace EthernetGlobalData.Protocol
 {
     public class Protocol
     {        
-        private static CancellationTokenSource token = new CancellationTokenSource();
+        private static CancellationTokenSource Token = new CancellationTokenSource();
         private static IServiceScopeFactory? _serviceProvider;
         public const int HeaderSize = 32;
         private static List<Thread> threads = new List<Thread>();
         public static UDP TransportLayer { get; set; }
 
-        public class MessageData
+        public class Message
         {
-            public List<byte> Payload { get; set; }
+            public List<byte> Data { get; set; }
             public MessageStatus Status { get; set; }
 
-            public MessageData(){ }
+            public Message(List<byte>  payload, MessageStatus status)
+            {
+                Data = payload;
+                Status = status;
+            }
         }
         public enum MessageStatus
         {
@@ -32,13 +36,14 @@ namespace EthernetGlobalData.Protocol
             ErrorRecieving,
             ErrorReading,
             ErrorSending,
-            ErrorStoring
+            ErrorStoring,
         }        
         public int MessageNumber { get; set; }
 
-        public Protocol(IServiceScopeFactory serviceScopeFactory)
-        {
+        public Protocol(IServiceScopeFactory serviceScopeFactory, CancellationTokenSource token)
+        {   
             _serviceProvider = serviceScopeFactory;
+            Token = token;
         }
 
         public async Task Start(IList<Models.Node> nodes, IList<Models.Channel> channels)
@@ -69,7 +74,10 @@ namespace EthernetGlobalData.Protocol
         private static void StartChannel(IList<Models.Node> nodes, ref UDP transportLayer)
         {
             try
-            {                
+            {
+                Consumer.Consumers.Clear();
+                Producer.Producers.Clear();
+
                 foreach (Node node in nodes)
                 {
                     if (node.CommunicationType == "Consumer")
@@ -83,7 +91,7 @@ namespace EthernetGlobalData.Protocol
                             Points = node.Points,
                         };
 
-                        new Consumer(header, new MessageData());
+                        new Consumer(header, new Message(new List<byte>(), new MessageStatus()));
                     }
                     else
                     {
@@ -97,11 +105,11 @@ namespace EthernetGlobalData.Protocol
                             Points = node.Points,
                         };
 
-                        new Producer(header, new MessageData());
+                        new Producer(header, new Message(new List<byte>(), new MessageStatus()));
                     }
                 }
-
-                Communicate(ref transportLayer);
+                
+                Communicate(transportLayer);
             }
             catch (Exception ex)
             {
@@ -113,27 +121,45 @@ namespace EthernetGlobalData.Protocol
 
         public void Stop()
         {
-            UDP.CloseAllConnections();
-            token.Cancel();
+            Producer.Stop();
+            Consumer.Stop();
+            UDP.CloseAllConnections();            
         }
 
-        public static MessageStatus Communicate(ref UDP transportLayer)
+        public static async void Communicate(UDP transportLayer)
         {
             try
             {
-                while (!token.IsCancellationRequested)
-                {
-                    Consumer.Start(transportLayer, token, _serviceProvider);
-                    Producer.Start(transportLayer, token, _serviceProvider);
-                }
-                return MessageStatus.Recieved;
+                MessageStatus messageStatus = new MessageStatus();
+
+                //while (!Token.IsCancellationRequested)
+                //{
+                    Thread.Sleep(1000);
+
+                    if (Consumer.Consumers.Any())
+                    {
+                        messageStatus = Consumer.Start(transportLayer, _serviceProvider);
+                    }
+                    else if (Producer.Producers.Any())
+                    {
+                        messageStatus = Producer.Start(transportLayer, _serviceProvider);
+                    }
+                    else
+                    {
+                        Token.Cancel();
+                        messageStatus = MessageStatus.Discarded;
+                    }
+
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    Console.WriteLine(transportLayer.ToString() + messageStatus);
+                    Console.ResetColor();
+                //}
             }
             catch (Exception ex)
-            {   
+            {
                 Console.ForegroundColor = ConsoleColor.Red;
                 Console.WriteLine(ex);
                 Console.ResetColor();
-                return MessageStatus.ErrorRecieving;
             }
         }
     }

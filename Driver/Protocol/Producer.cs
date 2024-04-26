@@ -1,15 +1,16 @@
 ﻿using EthernetGlobalData.Data;
 using Microsoft.AspNetCore.Mvc;
+using NuGet.Common;
 using System.Collections;
+using System.Threading;
+using System.Threading.Tasks;
 using static EthernetGlobalData.Protocol.Protocol;
 
 namespace EthernetGlobalData.Protocol
 {
     public class Producer
     {
-        private List<Task> tasks = new List<Task>();
-        private CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
-        private readonly ApplicationDbContext _context;
+        private static CancellationTokenSource source = new CancellationTokenSource();
 
         public struct MessageHeader
         {
@@ -24,59 +25,68 @@ namespace EthernetGlobalData.Protocol
         [BindProperty]
         public Models.Point Point { get; set; } = default!;
         public MessageHeader Header { get; set; }
-        public MessageData Message { get; set; }
+        public Message Message { get; set; }
 
         public static List<Producer> Producers = new List<Producer>();
 
-        public Producer(MessageHeader messageHeader, MessageData messageData)
+        public Producer(MessageHeader messageHeader, Message messageData)
         {
             Header = messageHeader;
             Message = messageData;
             Producers.Add(this);
         }
 
-        public static MessageStatus Start(UDP transportLayer, CancellationTokenSource token, IServiceScopeFactory scope)
+        public static MessageStatus Start(UDP transportLayer, IServiceScopeFactory scope)
         {
             try
             {
-                byte[] recievedBytes = transportLayer.Receive();
+                CancellationToken token = source.Token;
 
+                transportLayer.Connect();
+                
                 foreach (Producer producer in Producers)
                 {
                     Task task = Task.Run(async () =>
                     {
-                        using (var service = scope.CreateScope())
+                        while (!token.IsCancellationRequested)
                         {
-                            ApplicationDbContext context = service.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-
-                            producer.Message.Status = producer.Write();
-
-                            if (producer.Message.Status == MessageStatus.ErrorReading)
+                            using (var service = scope.CreateScope())
                             {
-                                transportLayer.Close();
+                                ApplicationDbContext context = service.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
-                                token.Cancel();
+                                producer.Message = producer.PrepareMessage();
 
-                                return;
-                            }                            
+                                transportLayer.Send(producer.Message.Data.ToArray());
+
+                                if (producer.Message.Status == MessageStatus.ErrorSending)
+                                {
+                                    Stop();
+                                    return;
+                                }
+                            }
                         }
-                    }, token.Token);
+                    }, token);
                 }
                 return MessageStatus.Sent;
             }
-            catch
+            catch (Exception ex)
             {
+                Console.WriteLine(ex.Message);
                 return MessageStatus.ErrorStoring;
             }
-
-            return MessageStatus.Stored;
-
         }
 
-        public MessageStatus Write()
+        public static void Stop()
+        {
+            source.Cancel();
+        }
+
+        public Message PrepareMessage()
         {
             try
-            {
+            {   
+                this.Message.Data.Clear();
+
                 byte[] headerBytes = new byte[HeaderSize];
 
                 BitConverter.GetBytes(0XD).CopyTo(headerBytes, 0); //PDU type
@@ -107,26 +117,35 @@ namespace EthernetGlobalData.Protocol
                 // Reserved
                 BitConverter.GetBytes(0x00000000).CopyTo(headerBytes, 28);
 
-                Message.Payload.InsertRange(0, headerBytes);
+                // Payload
+                Message.Data.InsertRange(0, headerBytes);
 
-                MessageStatus result = TreatMessage(Message);
+                lock (Message)
+                {
+                    Message = TreatMessage(Message);
+                }
+                
+                if(Message.Status == MessageStatus.ErrorStoring)
+                {
+                    Console.WriteLine(Message.Status.ToString());
+                }
 
-                TransportLayer.Send(Message.Payload.ToArray());
+                //Update Request ID
+                MessageHeader messageHeader = this.Header;
+                messageHeader.MessageNumber++;
+                this.Header = messageHeader;
 
-                UpdateMessageNumber();
-
-                return result;
+                return this.Message;
             }
             catch (Exception ex)
             {
                 Console.WriteLine(ex.Message);
-
-                return MessageStatus.ErrorSending;
+                return this.Message;
             }
         }
 
-        public MessageStatus TreatMessage(MessageData message)
-        {
+        public Message TreatMessage(Message message)
+        {              
             try
             {
                 foreach (Models.Point point in Header.Points)
@@ -138,47 +157,103 @@ namespace EthernetGlobalData.Protocol
                             case Models.DataType.Word:
                                 short wordValue = Convert.ToInt16(point.Value);
                                 byte[] wordBytes = BitConverter.GetBytes(wordValue);
-                                message.Payload.InsertRange(HeaderSize + Convert.ToInt16(point.Address), wordBytes);
+                                int wordAddress = Convert.ToInt16(point.Address);
+
+                                UpdatePayload(wordBytes, wordAddress);
+
                                 break;
+
                             case Models.DataType.Real:
                                 float realValue = Convert.ToSingle(point.Value);
                                 byte[] realBytes = BitConverter.GetBytes(realValue);
-                                message.Payload.InsertRange(HeaderSize + Convert.ToInt16(point.Address), realBytes);
+                                int realAddress = Convert.ToInt16(point.Address);
+
+                                UpdatePayload(realBytes, realAddress);
+
                                 break;
+
                             case Models.DataType.Long:
                                 long longValue = Convert.ToInt64(point.Value);
                                 byte[] longBytes = BitConverter.GetBytes(longValue);
-                                message.Payload.InsertRange(HeaderSize + Convert.ToInt16(point.Address), longBytes);
+                                int longAddress = Convert.ToInt16(point.Address);
+
+                                UpdatePayload(longBytes, longAddress);
+
                                 break;
+
+                            default:
+                                throw new InvalidOperationException("Unsupported data type.");
                         }
                     }
                     else
                     {
-                        string[] address;
-
-                        address = point.Address.Split(".");
-
-                        byte access = Message.Payload[HeaderSize + Convert.ToInt32(address[0])];
-
-                        BitArray bitArray = new BitArray(new byte[] { access });
-
-                        bitArray.Set(Convert.ToInt32(address[1]), point.Value == 1 ? true : false);
-
-                        // Convert the modified BitArray back to a byte
-                        byte[] byteArray = new byte[(bitArray.Length + 7) / 8];
-                        bitArray.CopyTo(byteArray, 0);
-                        access = byteArray[0];
-
-                        Message.Payload[HeaderSize + Convert.ToInt32(address[0])] = access;
+                        TreatBoolean(point);
                     }                    
                 }
-                return MessageStatus.Stored;
+                message.Status = MessageStatus.Stored;
+                return message;
             }
             catch(Exception ex)
             {
                 Console.WriteLine(ex.Message);
+                message.Status = MessageStatus.ErrorStoring;
+                return message;
+            }
+        }
 
-                return MessageStatus.ErrorStoring;
+        private void TreatBoolean(Models.Point point)
+        {   
+
+            string[] address;
+
+            address = point.Address.Split(".");
+
+            int bytePos = Convert.ToInt32(address[0]);
+            int bitPos = Convert.ToInt32(address[1]);
+
+            if (this.Message.Data.Count <= Protocol.HeaderSize + bytePos)
+            {   
+                for (int i = 0; i < Convert.ToInt32(address[0]); i++)
+                {
+                    this.Message.Data.Add(0x00);
+                }
+            }
+
+            byte byteValue = this.Message.Data[HeaderSize + bytePos];
+
+            BitArray bitArray = new BitArray(new byte[] { byteValue });
+
+            BitArray reversedBitArray = new BitArray(bitArray.Count);
+
+            for (int i = 0; i < bitArray.Count; i++)
+            {
+                reversedBitArray[i] = bitArray[bitArray.Count - 1 - i];
+            }
+
+            reversedBitArray.Set(bitPos, point.Value == 1 ? true : false);
+
+            // Convert the modified BitArray back to a byte
+            byte[] byteArray = new byte[1];
+            reversedBitArray.CopyTo(byteArray, 0);
+            byteValue = byteArray[0];
+
+            this.Message.Data[HeaderSize + bytePos] = byteValue;
+        }
+
+        private void UpdatePayload(byte[] valueBytes, int address)
+        {   
+
+            if(this.Message.Data.Count <= Protocol.HeaderSize + address + valueBytes.Length)
+            {   
+                foreach(byte value in valueBytes)
+                {
+                    this.Message.Data.Add(0x00);
+                }                
+            }
+
+            for(int i = 0; i < valueBytes.Length; i++)
+            {
+                this.Message.Data[Protocol.HeaderSize + address + i] = valueBytes[i];
             }
         }
 

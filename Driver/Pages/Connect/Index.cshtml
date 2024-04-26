@@ -22,6 +22,9 @@
                 Communication Point
             </th>
             <th>
+                @Html.DisplayNameFor(model => model.Point[0].Address)
+            </th>
+            <th>
                 @Html.DisplayNameFor(model => model.Point[0].Value)
             </th>
             <th></th>
@@ -33,6 +36,9 @@
             <tr>
                 <td>
                     @Html.DisplayFor(modelItem => item.Name)
+                </td>
+                <td>
+                    @Html.DisplayFor(modelItem => item.Address)
                 </td>
                 <td>
                     @Html.DisplayFor(modelItem => item.Value)

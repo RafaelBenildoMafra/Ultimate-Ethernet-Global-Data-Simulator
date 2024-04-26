@@ -1,4 +1,5 @@
-﻿using EthernetGlobalData.Data;
+﻿using Elfie.Serialization;
+using EthernetGlobalData.Data;
 using EthernetGlobalData.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -24,62 +25,76 @@ namespace EthernetGlobalData.Protocol
         }
 
         public static List<Consumer> Consumers = new List<Consumer>();
+        private static CancellationTokenSource source = new CancellationTokenSource();
 
         [BindProperty]
         public Models.Point Point { get; set; } = default!;        
         public MessageHeader Header { get; set; }
-        public MessageData Message { get; set; }
+        public Message Message { get; set; }
 
-        public Consumer(MessageHeader messageHeader, MessageData messageData)
+        public Consumer(MessageHeader messageHeader, Message messageData)
         {
             Header = messageHeader;
             Message = messageData;
             Consumers.Add(this);
         }
 
-        public static MessageStatus Start(UDP transportLayer, CancellationTokenSource token, IServiceScopeFactory scope)
+        public static MessageStatus Start(UDP transportLayer, IServiceScopeFactory scope)
         {
             try
-            {                
+            {
+                CancellationToken token = source.Token;
+
                 byte[] recievedBytes = transportLayer.Receive();
 
                 foreach (Consumer consumer in Consumers)
                 {
+                    if (!consumer.Header.Points.Any())
+                    {
+                        consumer.Message.Status = MessageStatus.Discarded;
+                        Console.WriteLine("No Points Configured for: " + consumer.Header.ID);
+                        continue;
+                    }
+
                     Task task = Task.Run(async () =>
                     {
-                        using (var service = scope.CreateScope())
+                        while (!token.IsCancellationRequested)
                         {
-                            ApplicationDbContext context = service.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-
-                            consumer.Message = consumer.Read(recievedBytes);
-
-                            if (consumer.Message.Status == MessageStatus.ErrorReading)
+                            using (var service = scope.CreateScope())
                             {
-                                transportLayer.Close();
+                                ApplicationDbContext context = service.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
-                                token.Cancel();
+                                consumer.Message = consumer.Read(recievedBytes);
 
-                                return;
-                            }                            
+                                if (consumer.Message.Status == MessageStatus.ErrorReading)
+                                {   
+                                    Stop();
+                                    return;
+                                }
 
-                            MessageStatus messageStatus = await consumer.TreatMessage(context);
+                                MessageStatus messageStatus = await consumer.TreatMessage(context);
+                            }
                         }
-                    }, token.Token);                                                          
+                    }, token);                                                          
                 }                
             }
-            catch 
+            catch(Exception ex) 
             {
-                return MessageStatus.ErrorStoring;
+                Console.WriteLine(ex.Message);
+                return MessageStatus.ErrorReading;
             }
 
             return MessageStatus.Stored;
 
         }
 
-        public MessageData Read(byte[] recievedBytes)
+        public static void Stop()
         {
-            this.Message.Payload = new List<byte>();
+            source.Cancel();
+        }
 
+        public Message Read(byte[] recievedBytes)
+        {   
             string messageState = "Header";           
 
             if (recievedBytes != null)
@@ -135,12 +150,12 @@ namespace EthernetGlobalData.Protocol
                             if (recievedBytes[24] == this.Header.MinorSignature && recievedBytes[25]
                                 == this.Header.MajorSignature)
                             {
-                                goto case "Payload";
+                                goto case "Data";
                             }
 
                             break;
 
-                        case "Payload":
+                        case "Data":
 
                             if (recievedBytes.Length > 1432)
                             {
@@ -150,9 +165,8 @@ namespace EthernetGlobalData.Protocol
                             {
                                 for (int i = 32; i < recievedBytes.Length; i++)
                                 {
-                                    this.Message.Payload.Add(recievedBytes[i]);
+                                    this.Message.Data.Add(recievedBytes[i]);
                                 }
-                                this.Message.Status = MessageStatus.Recieved;
 
                                 return this.Message;
                             }
@@ -182,7 +196,7 @@ namespace EthernetGlobalData.Protocol
                 ushort bytePos;
                 ushort bitPos;
 
-                this.Message.Payload = AjustPayloadSize(this.Message.Payload);
+                this.Message.Data = AjustPayloadSize(this.Message.Data);
 
                 try
                 {
@@ -195,7 +209,7 @@ namespace EthernetGlobalData.Protocol
                             bytePos = Convert.ToUInt16(address[0]);
                             bitPos = Convert.ToUInt16(address[1]);
 
-                            BitArray bitArray = new BitArray(new byte[] { this.Message.Payload[bytePos] });
+                            BitArray bitArray = new BitArray(new byte[] { this.Message.Data[bytePos] });
 
                             point.Value = bitArray[bitPos] == true ? 1 : 0;
 
@@ -207,7 +221,7 @@ namespace EthernetGlobalData.Protocol
 
                             bytePos = Convert.ToUInt16(point.Address);
 
-                            byte[] byteWord = { this.Message.Payload[bytePos], this.Message.Payload[bytePos + 1] };
+                            byte[] byteWord = { this.Message.Data[bytePos], this.Message.Data[bytePos + 1] };
 
                             point.Value = BitConverter.ToUInt16(byteWord, 0);
 
@@ -219,8 +233,8 @@ namespace EthernetGlobalData.Protocol
 
                             bytePos = Convert.ToUInt16(point.Address);
 
-                            byte[] byteReal = {this.Message.Payload[bytePos], this.Message.Payload[bytePos + 1], this.Message.Payload[bytePos + 2],
-                            this.Message.Payload[bytePos + 3]};
+                            byte[] byteReal = {this.Message.Data[bytePos], this.Message.Data[bytePos + 1], this.Message.Data[bytePos + 2],
+                            this.Message.Data[bytePos + 3]};
 
                             point.Value = BitConverter.ToUInt32(byteReal, 0);
 
@@ -232,9 +246,9 @@ namespace EthernetGlobalData.Protocol
 
                             bytePos = Convert.ToUInt16(point.Address);
 
-                            byte[] byteLong = {this.Message.Payload[bytePos], this.Message.Payload[bytePos + 1], this.Message.Payload[bytePos + 2],
-                            this.Message.Payload[bytePos + 3], this.Message.Payload[bytePos + 4], this.Message.Payload[bytePos + 5],
-                            this.Message.Payload[bytePos + 6], this.Message.Payload[bytePos + 7] };
+                            byte[] byteLong = {this.Message.Data[bytePos], this.Message.Data[bytePos + 1], this.Message.Data[bytePos + 2],
+                            this.Message.Data[bytePos + 3], this.Message.Data[bytePos + 4], this.Message.Data[bytePos + 5],
+                            this.Message.Data[bytePos + 6], this.Message.Data[bytePos + 7] };
 
                             point.Value = BitConverter.ToInt64(byteLong, 0);
 

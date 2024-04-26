@@ -18,10 +18,15 @@ namespace EthernetGlobalData.Protocol
             Clients.Add(Client);
         }
 
-        public void Send(byte[] data)
+        public void Connect()
+        {
+            Client.Connect(localEP);
+        }
+
+        public  void Send(byte[] data)
         {
             try
-            {
+            {                   
                 Client.Send(data);
             }
             catch (Exception ex)

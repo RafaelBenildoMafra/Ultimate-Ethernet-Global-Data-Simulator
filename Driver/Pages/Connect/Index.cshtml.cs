@@ -10,8 +10,7 @@ namespace EthernetGlobalData.Pages.Connect
     {
         private readonly ApplicationDbContext _context;
         private readonly IServiceScopeFactory _serviceProvider;
-        private Task consumerTask;
-        public const string SessionKey = "_Running";
+        public const string SessionKey = "_Running";        
 
         public IndexModel(ApplicationDbContext context, IServiceScopeFactory serviceProvider)
         {
@@ -38,7 +37,7 @@ namespace EthernetGlobalData.Pages.Connect
         }
 
         public async Task<IActionResult> OnPostAsync(string? start, string? stop)
-        {
+        {   
             if (!ModelState.IsValid)
             {
                 return Page();
@@ -55,7 +54,9 @@ namespace EthernetGlobalData.Pages.Connect
 
             Channel = await _context.Channel.ToListAsync();
 
-            EthernetGlobalData.Protocol.Protocol protocol = new EthernetGlobalData.Protocol.Protocol(_serviceProvider);
+            CancellationTokenSource token = new CancellationTokenSource();
+
+            EthernetGlobalData.Protocol.Protocol protocol = new EthernetGlobalData.Protocol.Protocol(_serviceProvider, token);
 
             if (!string.IsNullOrEmpty(start))
             {
