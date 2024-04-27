@@ -15,68 +15,62 @@ namespace EthernetGlobalData.Protocol
 {
     public class Consumer
     {
-        public struct MessageHeader
-        {
-            public string ID { get; set; }
-            public int ExchangeID { get; set; }
-            public int MajorSignature { get; set; }
-            public int MinorSignature { get; set; }
-            public ICollection<Models.Point> Points { get; set; }
-        }
-
         public static List<Consumer> Consumers = new List<Consumer>();
-        private static CancellationTokenSource source = new CancellationTokenSource();
+        private static CancellationTokenSource Source = new CancellationTokenSource();
 
         [BindProperty]
         public Models.Point Point { get; set; } = default!;        
         public MessageHeader Header { get; set; }
         public Message Message { get; set; }
 
-        public Consumer(MessageHeader messageHeader, Message messageData)
+        public Consumer(MessageHeader messageHeader, Message messageData, CancellationTokenSource source)
         {
             Header = messageHeader;
             Message = messageData;
             Consumers.Add(this);
+            Source = source;
         }
 
-        public static MessageStatus Start(UDP transportLayer, IServiceScopeFactory scope)
+        public static async Task<MessageStatus> Start(UDP transportLayer, IServiceScopeFactory scope)
         {
             try
             {
-                CancellationToken token = source.Token;
+                CancellationToken token = Source.Token;                
 
-                byte[] recievedBytes = transportLayer.Receive();
-
-                foreach (Consumer consumer in Consumers)
+                Task task = Task.Run(async () =>
                 {
-                    if (!consumer.Header.Points.Any())
+                    while (!token.IsCancellationRequested)
                     {
-                        consumer.Message.Status = MessageStatus.Discarded;
-                        Console.WriteLine("No Points Configured for: " + consumer.Header.ID);
-                        continue;
-                    }
+                        byte[] recievedBytes = transportLayer.Receive();
 
-                    Task task = Task.Run(async () =>
-                    {
-                        while (!token.IsCancellationRequested)
+                        foreach (Consumer consumer in Consumers)
                         {
+                            if (!consumer.Header.Points.Any())
+                            {
+                                consumer.Message.Status = MessageStatus.Discarded;
+                                Console.WriteLine("No Points Configured for: " + consumer.Header.ID);
+                                continue;
+                            }
+
                             using (var service = scope.CreateScope())
                             {
                                 ApplicationDbContext context = service.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
                                 consumer.Message = consumer.Read(recievedBytes);
 
+                                MessageStatus messageStatus = consumer.TreatMessage(context);
+                                                            
                                 if (consumer.Message.Status == MessageStatus.ErrorReading)
-                                {   
+                                {
                                     Stop();
                                     return;
                                 }
 
-                                MessageStatus messageStatus = await consumer.TreatMessage(context);
+                                await Task.Delay((int)consumer.Header.Period);
                             }
                         }
-                    }, token);                                                          
-                }                
+                    }
+                }, token);                                                                                          
             }
             catch(Exception ex) 
             {
@@ -90,7 +84,7 @@ namespace EthernetGlobalData.Protocol
 
         public static void Stop()
         {
-            source.Cancel();
+            Source.Cancel();
         }
 
         public Message Read(byte[] recievedBytes)
@@ -168,7 +162,7 @@ namespace EthernetGlobalData.Protocol
                                     this.Message.Data.Add(recievedBytes[i]);
                                 }
 
-                                return this.Message;
+                                 return this.Message;
                             }
                     }
                     this.Message.Status = MessageStatus.Discarded;
@@ -188,7 +182,7 @@ namespace EthernetGlobalData.Protocol
             }
         }
 
-        public async Task<MessageStatus> TreatMessage(ApplicationDbContext context)
+        public MessageStatus TreatMessage(ApplicationDbContext context)
         {
             foreach (Models.Point point in this.Header.Points)
             {
@@ -209,11 +203,11 @@ namespace EthernetGlobalData.Protocol
                             bytePos = Convert.ToUInt16(address[0]);
                             bitPos = Convert.ToUInt16(address[1]);
 
-                            BitArray bitArray = new BitArray(new byte[] { this.Message.Data[bytePos] });
+                            BitArray bitArray = new BitArray(new byte[] { this.Message.Data[Protocol.HeaderSize + bytePos - 1] });
 
                             point.Value = bitArray[bitPos] == true ? 1 : 0;
 
-                            await UpdatePoint(point, context);
+                            UpdatePoint(point, context);
 
                             break;
 
@@ -225,7 +219,7 @@ namespace EthernetGlobalData.Protocol
 
                             point.Value = BitConverter.ToUInt16(byteWord, 0);
 
-                            await UpdatePoint(point, context);
+                            UpdatePoint(point, context);
 
                             break;
 
@@ -238,7 +232,7 @@ namespace EthernetGlobalData.Protocol
 
                             point.Value = BitConverter.ToUInt32(byteReal, 0);
 
-                            await UpdatePoint(point, context);
+                            UpdatePoint(point, context);
 
                             break;
 
@@ -252,7 +246,7 @@ namespace EthernetGlobalData.Protocol
 
                             point.Value = BitConverter.ToInt64(byteLong, 0);
 
-                            await UpdatePoint(point, context);
+                            UpdatePoint(point, context);
 
                             break;
 
@@ -266,7 +260,7 @@ namespace EthernetGlobalData.Protocol
             }
             try
             {
-                await context.SaveChangesAsync();
+                context.SaveChangesAsync();
             }
             catch (DbUpdateConcurrencyException)
             {   
@@ -275,7 +269,7 @@ namespace EthernetGlobalData.Protocol
             return MessageStatus.Stored;
         }
 
-        private static async Task UpdatePoint(Models.Point point, ApplicationDbContext context)
+        private static void UpdatePoint(Models.Point point, ApplicationDbContext context)
         {           
             try
             {

@@ -11,9 +11,7 @@ namespace EthernetGlobalData.Models
 
         [Required]
         public string? ChannelName { get; set; }
-
         public string? IP { get; set; }
-
         public int Port { get; set; }
     }
 }

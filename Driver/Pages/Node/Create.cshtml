@@ -30,6 +30,11 @@
                 </select>
             </div>
             <div class="form-group">
+                <label class="control-label">Period (Milliseconds):</label>
+                <input asp-for="Node.Period" class="form-control" />
+                <span asp-validation-for="Node.Period" class="text-danger"></span>
+            </div>
+            <div class="form-group">
                 <label asp-for="Node.Exchange" class="control-label"></label>
                 <input asp-for="Node.Exchange" class="form-control" />
                 <span asp-validation-for="Node.Exchange" class="text-danger"></span>

@@ -21,5 +21,6 @@ namespace EthernetGlobalData.Models
         public ushort MajorSignature { get; set; }
         public ushort MinorSignature { get; set; }
         public ICollection<Point>? Points { get; set; }
+        public ulong Period { get; set; }
     }
 }

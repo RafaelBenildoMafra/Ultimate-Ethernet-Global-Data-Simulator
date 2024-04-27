@@ -1,5 +1,6 @@
 ﻿using EthernetGlobalData.Data;
 using EthernetGlobalData.Models;
+using Microsoft.DotNet.Scaffolding.Shared.Messaging;
 using NuGet.Common;
 using System.Collections;
 using System.Threading;
@@ -9,11 +10,23 @@ namespace EthernetGlobalData.Protocol
 {
     public class Protocol
     {        
-        private static CancellationTokenSource Token = new CancellationTokenSource();
+        private static CancellationTokenSource source = new CancellationTokenSource();
         private static IServiceScopeFactory? _serviceProvider;
         public const int HeaderSize = 32;
         private static List<Thread> threads = new List<Thread>();
+
         public static UDP TransportLayer { get; set; }
+
+        public struct MessageHeader
+        {
+            public string ID { get; set; }
+            public int ExchangeID { get; set; }
+            public int MajorSignature { get; set; }
+            public int MinorSignature { get; set; }
+            public int MessageNumber { get; set; }
+            public ICollection<Models.Point> Points { get; set; }
+            public ulong Period { get; set; }
+        }
 
         public class Message
         {
@@ -43,7 +56,7 @@ namespace EthernetGlobalData.Protocol
         public Protocol(IServiceScopeFactory serviceScopeFactory, CancellationTokenSource token)
         {   
             _serviceProvider = serviceScopeFactory;
-            Token = token;
+            source = token;
         }
 
         public async Task Start(IList<Models.Node> nodes, IList<Models.Channel> channels)
@@ -55,8 +68,7 @@ namespace EthernetGlobalData.Protocol
                     Thread thread = new Thread(() =>
                     {
                         UDP transportLayer = new UDP(channel.IP, channel.Port);
-
-                        StartChannel(nodes, ref transportLayer);
+                        StartChannel(nodes, ref transportLayer);                        
                     });
                     thread.Name = channel.ChannelName;
                     thread.Start();
@@ -80,32 +92,23 @@ namespace EthernetGlobalData.Protocol
 
                 foreach (Node node in nodes)
                 {
+                    MessageHeader header = new MessageHeader 
+                    {
+                        ID = node.Channel.IP,
+                        MajorSignature = node.MajorSignature,
+                        MinorSignature = node.MinorSignature,
+                        ExchangeID = node.Exchange,
+                        Points = node.Points,
+                        Period = node.Period,
+                    };
+
                     if (node.CommunicationType == "Consumer")
                     {
-                        Consumer.MessageHeader header = new Consumer.MessageHeader
-                        {
-                            ID = node.Channel.IP,
-                            MajorSignature = node.MajorSignature,
-                            MinorSignature = node.MinorSignature,
-                            ExchangeID = node.Exchange,
-                            Points = node.Points,
-                        };
-
-                        new Consumer(header, new Message(new List<byte>(), new MessageStatus()));
+                        new Consumer(header, new Message(new List<byte>(), new MessageStatus()), source);
                     }
                     else
                     {
-                        Producer.MessageHeader header = new Producer.MessageHeader
-                        {
-                            MessageNumber = 0,
-                            ID = node.Channel.IP,
-                            MajorSignature = node.MajorSignature,
-                            MinorSignature = node.MinorSignature,
-                            ExchangeID = node.Exchange,
-                            Points = node.Points,
-                        };
-
-                        new Producer(header, new Message(new List<byte>(), new MessageStatus()));
+                        new Producer(header, new Message(new List<byte>(), new MessageStatus()), source);
                     }
                 }
                 
@@ -123,44 +126,50 @@ namespace EthernetGlobalData.Protocol
         {
             Producer.Stop();
             Consumer.Stop();
-            UDP.CloseAllConnections();            
+            UDP.CloseAllConnections();
+
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine("Communication Stopped by User");
+            Console.ResetColor();
         }
 
-        public static async void Communicate(UDP transportLayer)
+        public static MessageStatus Communicate(UDP transportLayer)
         {
             try
-            {
+            {   
                 MessageStatus messageStatus = new MessageStatus();
 
-                //while (!Token.IsCancellationRequested)
-                //{
-                    Thread.Sleep(1000);
+                if (Consumer.Consumers.Any())
+                {
+                    Task.Run(async () =>
+                    {
+                        messageStatus = await Consumer.Start(transportLayer, _serviceProvider);
+                    },source.Token);
+                }
+                if (Producer.Producers.Any())
+                {
+                    Task.Run(async () =>
+                    {
+                        messageStatus = await Producer.Start(transportLayer, _serviceProvider);
+                    },source.Token);
+                }
+                
+                if(!Consumer.Consumers.Any() && !Producer.Producers.Any())
+                {
+                    source.Cancel();
+                    messageStatus = MessageStatus.Discarded;
+                }
 
-                    if (Consumer.Consumers.Any())
-                    {
-                        messageStatus = Consumer.Start(transportLayer, _serviceProvider);
-                    }
-                    else if (Producer.Producers.Any())
-                    {
-                        messageStatus = Producer.Start(transportLayer, _serviceProvider);
-                    }
-                    else
-                    {
-                        Token.Cancel();
-                        messageStatus = MessageStatus.Discarded;
-                    }
-
-                    Console.ForegroundColor = ConsoleColor.Yellow;
-                    Console.WriteLine(transportLayer.ToString() + messageStatus);
-                    Console.ResetColor();
-                //}
+                return MessageStatus.Sent;
             }
             catch (Exception ex)
             {
                 Console.ForegroundColor = ConsoleColor.Red;
                 Console.WriteLine(ex);
                 Console.ResetColor();
-            }
+
+                return MessageStatus.ErrorSending;
+            }            
         }
     }
 }

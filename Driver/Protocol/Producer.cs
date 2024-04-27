@@ -1,5 +1,6 @@
 ﻿using EthernetGlobalData.Data;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using NuGet.Common;
 using System.Collections;
 using System.Threading;
@@ -10,46 +11,43 @@ namespace EthernetGlobalData.Protocol
 {
     public class Producer
     {
-        private static CancellationTokenSource source = new CancellationTokenSource();
-
-        public struct MessageHeader
-        {
-            public string ID { get; set; }
-            public int ExchangeID { get; set; }
-            public int MajorSignature { get; set; }
-            public int MinorSignature { get; set; }
-            public int MessageNumber { get; set; }
-            public ICollection<Models.Point> Points { get; set; }
-        }
+        private static CancellationTokenSource Source = new CancellationTokenSource();
+        public static List<Producer> Producers = new List<Producer>();
 
         [BindProperty]
         public Models.Point Point { get; set; } = default!;
         public MessageHeader Header { get; set; }
-        public Message Message { get; set; }
+        public Message Message { get; set; }        
 
-        public static List<Producer> Producers = new List<Producer>();
-
-        public Producer(MessageHeader messageHeader, Message messageData)
+        public Producer(MessageHeader messageHeader, Message messageData, CancellationTokenSource source)
         {
             Header = messageHeader;
             Message = messageData;
             Producers.Add(this);
+            Source = source;
         }
 
-        public static MessageStatus Start(UDP transportLayer, IServiceScopeFactory scope)
+        public static async Task<MessageStatus> Start(UDP transportLayer, IServiceScopeFactory scope)
         {
             try
             {
-                CancellationToken token = source.Token;
+                CancellationToken token = Source.Token;
 
                 transportLayer.Connect();
                 
                 foreach (Producer producer in Producers)
                 {
+                    if (!producer.Header.Points.Any())
+                    {
+                        producer.Message.Status = MessageStatus.Discarded;
+                        Console.WriteLine("No Points Configured for: " + producer.Header.ID);
+                        continue;
+                    }
+
                     Task task = Task.Run(async () =>
                     {
                         while (!token.IsCancellationRequested)
-                        {
+                        {   
                             using (var service = scope.CreateScope())
                             {
                                 ApplicationDbContext context = service.ServiceProvider.GetRequiredService<ApplicationDbContext>();
@@ -63,6 +61,8 @@ namespace EthernetGlobalData.Protocol
                                     Stop();
                                     return;
                                 }
+
+                                await Task.Delay((int)producer.Header.Period);
                             }
                         }
                     }, token);
@@ -78,7 +78,7 @@ namespace EthernetGlobalData.Protocol
 
         public static void Stop()
         {
-            source.Cancel();
+            Source.Cancel();
         }
 
         public Message PrepareMessage()
@@ -118,16 +118,16 @@ namespace EthernetGlobalData.Protocol
                 BitConverter.GetBytes(0x00000000).CopyTo(headerBytes, 28);
 
                 // Payload
-                Message.Data.InsertRange(0, headerBytes);
+                this.Message.Data.InsertRange(0, headerBytes);
 
-                lock (Message)
+                lock (this.Message)
                 {
-                    Message = TreatMessage(Message);
+                    this.Message = TreatMessage(this.Message);
                 }
                 
-                if(Message.Status == MessageStatus.ErrorStoring)
+                if(this.Message.Status == MessageStatus.ErrorStoring)
                 {
-                    Console.WriteLine(Message.Status.ToString());
+                    Console.WriteLine(this.Message.Status.ToString());
                 }
 
                 //Update Request ID
@@ -164,7 +164,7 @@ namespace EthernetGlobalData.Protocol
                                 break;
 
                             case Models.DataType.Real:
-                                float realValue = Convert.ToSingle(point.Value);
+                                int realValue = Convert.ToInt32(point.Value);
                                 byte[] realBytes = BitConverter.GetBytes(realValue);
                                 int realAddress = Convert.ToInt16(point.Address);
 
@@ -208,36 +208,36 @@ namespace EthernetGlobalData.Protocol
 
             address = point.Address.Split(".");
 
-            int bytePos = Convert.ToInt32(address[0]);
-            int bitPos = Convert.ToInt32(address[1]);
+            int bytePos = Convert.ToInt16(address[0]);
+            int bitPos = Convert.ToInt16(address[1]);
 
             if (this.Message.Data.Count <= Protocol.HeaderSize + bytePos)
             {   
-                for (int i = 0; i < Convert.ToInt32(address[0]); i++)
+                for (int i = 0; i < Convert.ToInt16(address[0]); i++)
                 {
                     this.Message.Data.Add(0x00);
                 }
             }
 
-            byte byteValue = this.Message.Data[HeaderSize + bytePos];
+            byte byteValue = this.Message.Data[Protocol.HeaderSize + bytePos - 1];
 
             BitArray bitArray = new BitArray(new byte[] { byteValue });
+
+            bitArray.Set(bitPos, point.Value == 1 ? true : false);
 
             BitArray reversedBitArray = new BitArray(bitArray.Count);
 
             for (int i = 0; i < bitArray.Count; i++)
             {
-                reversedBitArray[i] = bitArray[bitArray.Count - 1 - i];
-            }
-
-            reversedBitArray.Set(bitPos, point.Value == 1 ? true : false);
+                reversedBitArray[i] = bitArray[bitArray.Count - i - 1];
+            }            
 
             // Convert the modified BitArray back to a byte
             byte[] byteArray = new byte[1];
             reversedBitArray.CopyTo(byteArray, 0);
             byteValue = byteArray[0];
 
-            this.Message.Data[HeaderSize + bytePos] = byteValue;
+            this.Message.Data[HeaderSize + bytePos - 1] = byteValue;
         }
 
         private void UpdatePayload(byte[] valueBytes, int address)
@@ -245,7 +245,7 @@ namespace EthernetGlobalData.Protocol
 
             if(this.Message.Data.Count <= Protocol.HeaderSize + address + valueBytes.Length)
             {   
-                foreach(byte value in valueBytes)
+                for(int i = 0; i < valueBytes.Length + address; i++)
                 {
                     this.Message.Data.Add(0x00);
                 }                
@@ -253,7 +253,7 @@ namespace EthernetGlobalData.Protocol
 
             for(int i = 0; i < valueBytes.Length; i++)
             {
-                this.Message.Data[Protocol.HeaderSize + address + i] = valueBytes[i];
+                this.Message.Data[Protocol.HeaderSize + address + i - 1] = valueBytes[i];
             }
         }
 
