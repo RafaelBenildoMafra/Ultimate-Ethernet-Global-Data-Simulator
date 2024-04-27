@@ -41,7 +41,12 @@ namespace EthernetGlobalData.Protocol
                 {
                     while (!token.IsCancellationRequested)
                     {
-                        byte[] recievedBytes = transportLayer.Receive();
+                        byte[] recievedBytes;
+
+                        lock (transportLayer)
+                        {
+                            recievedBytes = transportLayer.Receive();
+                        }                        
 
                         foreach (Consumer consumer in Consumers)
                         {
@@ -56,15 +61,17 @@ namespace EthernetGlobalData.Protocol
                             {
                                 ApplicationDbContext context = service.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
-                                consumer.Message = consumer.Read(recievedBytes);
+                                consumer.Message = consumer.TreatHeader(recievedBytes);
 
-                                MessageStatus messageStatus = consumer.TreatMessage(context);
+                                MessageStatus messageStatus = consumer.TreatPayload(context);
                                                             
                                 if (consumer.Message.Status == MessageStatus.ErrorReading)
                                 {
                                     Stop();
                                     return;
                                 }
+
+                                consumer.Message.Data.Clear();
 
                                 await Task.Delay((int)consumer.Header.Period);
                             }
@@ -87,7 +94,7 @@ namespace EthernetGlobalData.Protocol
             Source.Cancel();
         }
 
-        public Message Read(byte[] recievedBytes)
+        public Message TreatHeader(byte[] recievedBytes)
         {   
             string messageState = "Header";           
 
@@ -182,7 +189,7 @@ namespace EthernetGlobalData.Protocol
             }
         }
 
-        public MessageStatus TreatMessage(ApplicationDbContext context)
+        public MessageStatus TreatPayload(ApplicationDbContext context)
         {
             foreach (Models.Point point in this.Header.Points)
             {
@@ -203,9 +210,16 @@ namespace EthernetGlobalData.Protocol
                             bytePos = Convert.ToUInt16(address[0]);
                             bitPos = Convert.ToUInt16(address[1]);
 
-                            BitArray bitArray = new BitArray(new byte[] { this.Message.Data[Protocol.HeaderSize + bytePos - 1] });
+                            BitArray bitArray = new BitArray(new byte[] { this.Message.Data[bytePos] });
 
-                            point.Value = bitArray[bitPos] == true ? 1 : 0;
+                            BitArray reversedBitArray = new BitArray(bitArray.Count);
+
+                            for (int i = 0; i < bitArray.Count; i++)
+                            {
+                                reversedBitArray[i] = bitArray[bitArray.Count - i - 1];
+                            }
+
+                            point.Value = reversedBitArray[bitPos] == true ? 1 : 0;
 
                             UpdatePoint(point, context);
 

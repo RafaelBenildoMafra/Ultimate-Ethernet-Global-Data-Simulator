@@ -1,4 +1,5 @@
 ﻿using EthernetGlobalData.Data;
+using Microsoft.AspNetCore.Connections;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using NuGet.Common;
@@ -49,20 +50,33 @@ namespace EthernetGlobalData.Protocol
                         while (!token.IsCancellationRequested)
                         {   
                             using (var service = scope.CreateScope())
-                            {
+                            {   
                                 ApplicationDbContext context = service.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
-                                producer.Message = producer.PrepareMessage();
+                                producer.Message = producer.BuildHeader();
 
-                                transportLayer.Send(producer.Message.Data.ToArray());
-
-                                if (producer.Message.Status == MessageStatus.ErrorSending)
+                                if (producer.Message.Status != MessageStatus.ErrorStoring)
                                 {
-                                    Stop();
-                                    return;
-                                }
+                                    lock (producer.Message)
+                                    {   
+                                        producer.Message.Data.AddRange(producer.BuildPayload());                                 
+                                    }
 
-                                await Task.Delay((int)producer.Header.Period);
+                                    producer.Message.Status = transportLayer.Send(producer.Message.Data.ToArray());
+
+                                    if (producer.Message.Status == MessageStatus.ErrorSending)
+                                    {
+                                        Stop();
+                                        return;
+                                    }
+
+                                    await Task.Delay((int)producer.Header.Period);
+                                }
+                                else
+                                {
+                                    Console.WriteLine("Could NOT Produce Data" + producer.Header.ID.ToString() + " - " + producer.Message.Status);
+                                }
+                               
                             }
                         }
                     }, token);
@@ -81,7 +95,7 @@ namespace EthernetGlobalData.Protocol
             Source.Cancel();
         }
 
-        public Message PrepareMessage()
+        public Message BuildHeader()
         {
             try
             {   
@@ -118,12 +132,7 @@ namespace EthernetGlobalData.Protocol
                 BitConverter.GetBytes(0x00000000).CopyTo(headerBytes, 28);
 
                 // Payload
-                this.Message.Data.InsertRange(0, headerBytes);
-
-                lock (this.Message)
-                {
-                    this.Message = TreatMessage(this.Message);
-                }
+                this.Message.Data.InsertRange(0, headerBytes);               
                 
                 if(this.Message.Status == MessageStatus.ErrorStoring)
                 {
@@ -140,14 +149,17 @@ namespace EthernetGlobalData.Protocol
             catch (Exception ex)
             {
                 Console.WriteLine(ex.Message);
+                this.Message.Status = MessageStatus.ErrorStoring;
                 return this.Message;
             }
         }
 
-        public Message TreatMessage(Message message)
-        {              
+        private List<byte> BuildPayload()
+        {    
+            List<byte> payload = new List<byte>();
+
             try
-            {
+            {                
                 foreach (Models.Point point in Header.Points)
                 {
                     if (point.DataType != Models.DataType.Boolean)
@@ -159,7 +171,7 @@ namespace EthernetGlobalData.Protocol
                                 byte[] wordBytes = BitConverter.GetBytes(wordValue);
                                 int wordAddress = Convert.ToInt16(point.Address);
 
-                                UpdatePayload(wordBytes, wordAddress);
+                                UpdatePayload(wordBytes, wordAddress, payload);
 
                                 break;
 
@@ -168,7 +180,7 @@ namespace EthernetGlobalData.Protocol
                                 byte[] realBytes = BitConverter.GetBytes(realValue);
                                 int realAddress = Convert.ToInt16(point.Address);
 
-                                UpdatePayload(realBytes, realAddress);
+                                UpdatePayload(realBytes, realAddress, payload);
 
                                 break;
 
@@ -177,7 +189,7 @@ namespace EthernetGlobalData.Protocol
                                 byte[] longBytes = BitConverter.GetBytes(longValue);
                                 int longAddress = Convert.ToInt16(point.Address);
 
-                                UpdatePayload(longBytes, longAddress);
+                                UpdatePayload(longBytes, longAddress, payload);
 
                                 break;
 
@@ -190,14 +202,12 @@ namespace EthernetGlobalData.Protocol
                         TreatBoolean(point);
                     }                    
                 }
-                message.Status = MessageStatus.Stored;
-                return message;
+                return payload;
             }
             catch(Exception ex)
             {
                 Console.WriteLine(ex.Message);
-                message.Status = MessageStatus.ErrorStoring;
-                return message;
+                return null;
             }
         }
 
@@ -205,21 +215,28 @@ namespace EthernetGlobalData.Protocol
         {   
 
             string[] address;
+            byte byteValue;
 
             address = point.Address.Split(".");
 
             int bytePos = Convert.ToInt16(address[0]);
             int bitPos = Convert.ToInt16(address[1]);
 
-            if (this.Message.Data.Count <= Protocol.HeaderSize + bytePos)
+            if (this.Message.Data.Count < Protocol.HeaderSize + bytePos)
             {   
                 for (int i = 0; i < Convert.ToInt16(address[0]); i++)
                 {
                     this.Message.Data.Add(0x00);
                 }
-            }
+            }           
 
-            byte byteValue = this.Message.Data[Protocol.HeaderSize + bytePos - 1];
+            if (this.Message.Data.Count == Protocol.HeaderSize + bytePos)
+            {
+                this.Message.Data.Add(0x00);
+                byteValue = this.Message.Data[Protocol.HeaderSize + bytePos];
+            }
+            
+            byteValue = this.Message.Data[Protocol.HeaderSize + bytePos - 1];
 
             BitArray bitArray = new BitArray(new byte[] { byteValue });
 
@@ -237,23 +254,22 @@ namespace EthernetGlobalData.Protocol
             reversedBitArray.CopyTo(byteArray, 0);
             byteValue = byteArray[0];
 
-            this.Message.Data[HeaderSize + bytePos - 1] = byteValue;
+            this.Message.Data[Protocol.HeaderSize + bytePos] = byteValue;
         }
 
-        private void UpdatePayload(byte[] valueBytes, int address)
-        {   
-
-            if(this.Message.Data.Count <= Protocol.HeaderSize + address + valueBytes.Length)
-            {   
-                for(int i = 0; i < valueBytes.Length + address; i++)
+        private void UpdatePayload(byte[] valueBytes, int address, List<byte> payload)
+        {
+            if (payload.Count <= address + valueBytes.Length)
+            {
+                for (int i = 0; i < valueBytes.Length + address; i++)
                 {
-                    this.Message.Data.Add(0x00);
-                }                
+                    payload.Add(0x00);
+                }
             }
 
-            for(int i = 0; i < valueBytes.Length; i++)
+            for (int i = 0; i < valueBytes.Length; i++)
             {
-                this.Message.Data[Protocol.HeaderSize + address + i - 1] = valueBytes[i];
+                payload[address + i] = valueBytes[i];
             }
         }
 

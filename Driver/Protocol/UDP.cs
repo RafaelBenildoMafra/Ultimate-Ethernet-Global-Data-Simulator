@@ -23,15 +23,17 @@ namespace EthernetGlobalData.Protocol
             Client.Connect(localEP);
         }
 
-        public  void Send(byte[] data)
+        public MessageStatus Send(byte[] data)
         {
             try
             {                   
                 Client.Send(data);
+                return MessageStatus.Sent;
             }
             catch (Exception ex)
-            {
+            {   
                 Console.WriteLine($"Error sending data: {ex.Message}");
+                return MessageStatus.ErrorSending;
             }
         }
 
